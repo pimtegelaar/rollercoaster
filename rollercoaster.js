@@ -133,7 +133,8 @@
     stuntSizeValue: document.getElementById('stuntSizeValue'),
     status: document.getElementById('status'),
     viewMode: document.getElementById('viewMode'),
-    placeSection: document.getElementById('placeSection')
+    placeSection: document.getElementById('placeSection'),
+    testCoaster: document.getElementById('testCoaster')
   };
 
   const initialPos = new THREE.Vector3(0, 2, 0);
@@ -183,8 +184,7 @@
     document.getElementById('snapStart').addEventListener('click', snapToStart);
     document.getElementById('undo').addEventListener('click', undoSection);
     document.getElementById('clear').addEventListener('click', clearTrack);
-    document.getElementById('testCoaster').addEventListener('click', startTest);
-    document.getElementById('stopTest').addEventListener('click', stopTest);
+    ui.testCoaster.addEventListener('click', toggleTest);
     ui.viewMode.addEventListener('click', toggleViewMode);
 
     ui.lengthSlider.addEventListener('input', () => {
@@ -250,6 +250,8 @@
     });
 
     updateDirectionButtons();
+    updateTestButton();
+    updateViewModeButton();
   }
 
   function selectSectionType(type) {
@@ -578,6 +580,11 @@
     setStatus('Track cleared. Start building from the blue start marker.');
   }
 
+  function toggleTest() {
+    if (isTesting) stopTest();
+    else startTest();
+  }
+
   function startTest() {
     if (sampledPoints.length < 2 || totalTrackLength < 2) {
       setStatus('Build at least one track section before testing.');
@@ -588,22 +595,40 @@
     cart.visible = true;
     cartDistance = 0;
     cartSpeed = Number(ui.speedSlider.value);
+    updateTestButton();
     updatePreviewSection();
     updateCart(0);
-    setStatus(`Testing the two-car train in ${viewMode === 'first' ? 'first' : 'third'} person${isClosedLoop ? ' on a closed loop' : ''}. Press Stop test to return to free camera.`);
+    setStatus(`Testing the two-car train in ${viewMode === 'first' ? 'first' : 'third'} person${isClosedLoop ? ' on a closed loop' : ''}. Press the stop button to return to free camera.`);
   }
 
   function stopTest() {
     isTesting = false;
     cart.visible = false;
+    updateTestButton();
     updatePreviewSection();
-    setStatus(isClosedLoop ? 'Test stopped. The coaster remains closed; press Undo to reopen it or Test coaster to ride again.' : 'Test stopped. WASD and left-mouse drag are back on the free camera.');
+    setStatus(isClosedLoop ? 'Test stopped. The coaster remains closed; press Undo to reopen it or Play to ride again.' : 'Test stopped. WASD, mouse drag, and touch controls are back on the free camera.');
+  }
+
+  function updateTestButton() {
+    if (!ui.testCoaster) return;
+    ui.testCoaster.textContent = isTesting ? '■' : '▶';
+    ui.testCoaster.setAttribute('aria-label', isTesting ? 'Stop test' : 'Start test');
+    ui.testCoaster.title = isTesting ? 'Stop test' : 'Start test';
+    ui.testCoaster.classList.toggle('good', !isTesting);
+    ui.testCoaster.classList.toggle('warning', isTesting);
   }
 
   function toggleViewMode() {
     viewMode = viewMode === 'third' ? 'first' : 'third';
-    ui.viewMode.textContent = viewMode === 'third' ? 'View: Third person' : 'View: First person';
+    updateViewModeButton();
     setStatus(`Camera view set to ${viewMode === 'third' ? 'third person' : 'first person'}.`);
+  }
+
+  function updateViewModeButton() {
+    if (!ui.viewMode) return;
+    ui.viewMode.textContent = viewMode === 'third' ? '3rd' : '1st';
+    ui.viewMode.setAttribute('aria-label', viewMode === 'third' ? 'Switch to first person view' : 'Switch to third person view');
+    ui.viewMode.title = viewMode === 'third' ? 'Switch to first person view' : 'Switch to third person view';
   }
 
   function rebuildTrackMeshes() {
@@ -1015,8 +1040,10 @@
         const endState = placeTrain(cartDistance);
         followCart(endState.position, endState.tangent, endState.frame);
         isTesting = false;
+        cart.visible = false;
+        updateTestButton();
         updatePreviewSection();
-        setStatus('The train reached the end of the track. Add more sections, use Snap / close loop, or press Test coaster again.');
+        setStatus('The train reached the end of the track. Add more sections, use Snap loop, or press Play again.');
         return;
       }
     }
@@ -1308,7 +1335,8 @@
   }
 
   function setStatus(message) {
-    ui.status.textContent = message;
+    if (ui.status) ui.status.textContent = message;
+    else if (window.console && typeof console.info === 'function') console.info(message);
   }
 
   function labelForType(type) {
