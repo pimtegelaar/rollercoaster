@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roller Coaster</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #101219;
+      color: #f5f7fb;
+    }
+
+    #game {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+    }
+
+    #ui {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      width: 330px;
+      max-width: calc(100vw - 24px);
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      background: rgba(15, 19, 30, 0.88);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(8px);
+      user-select: none;
+    }
+
+    #ui h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      letter-spacing: 0.01em;
+    }
+
+    #ui p {
+      margin: 6px 0;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #c7cfdf;
+    }
+
+    .panel-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .direction-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 10px;
+      color: #fff;
+      background: #3d6dff;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+    }
+
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: translateY(1px); }
+
+    button.secondary { background: #384052; }
+    button.warning { background: #a84545; }
+    button.good { background: #27965f; }
+    button.selected {
+      color: #101219;
+      background: #ffd166;
+      box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.38), inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      filter: grayscale(0.35);
+    }
+
+    label {
+      display: block;
+      margin: 8px 0;
+      font-size: 12px;
+      color: #dbe2f2;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-top: 5px;
+    }
+
+    .value {
+      float: right;
+      color: #fff;
+      font-weight: 800;
+    }
+
+    #status {
+      min-height: 34px;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      line-height: 1.35;
+      color: #eef3ff;
+    }
+
+    #no-three {
+      display: none;
+      position: fixed;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      text-align: center;
+      background: #101219;
+      color: #fff;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="no-three">
+    <div>
+      <h2>Three.js could not be loaded.</h2>
+      <p>This file is designed to be opened directly in a browser, but it needs the Three.js library. Check your internet connection or download <code>three.min.js</code> next to this HTML file and update the script tag.</p>
+    </div>
+  </div>
+
+  <div id="ui">
+    <h1>Roller Coaster</h1>
+    <p>WASD moves the free camera. Hold the left mouse button on the 3D view and drag to rotate. Use the scroll wheel to zoom in or out much farther.</p>
+    <p>On mobile: drag with one finger to rotate the free camera, drag with two fingers to pan around the park, and pinch with two fingers to zoom.</p>
+    <p>Choose a direction or stunt, preview the next section at 50% opacity, then press <strong>Place section</strong>. Loops and corkscrews settle back into the same forward direction they started with, and <strong>Test coaster</strong> rides a two-car train with passengers.</p>
+
+    <div class="panel-section">
+      <label>Section length <span class="value" id="lengthValue">14</span>
+        <input id="lengthSlider" type="range" min="5" max="30" step="1" value="14" />
+      </label>
+      <label>Bend / slope angle <span class="value" id="angleValue">20°</span>
+        <input id="angleSlider" type="range" min="5" max="60" step="1" value="20" />
+      </label>
+      <label>Loop / corkscrew body size <span class="value" id="stuntSizeValue">12</span>
+        <input id="stuntSizeSlider" type="range" min="7" max="30" step="1" value="12" />
+      </label>
+    </div>
+
+    <div class="panel-section grid direction-grid">
+      <button id="addStraight" class="wide selected">Direction: Straight</button>
+      <button id="addLeft">Direction: Left</button>
+      <button id="addRight">Direction: Right</button>
+      <button id="addUp">Direction: Up</button>
+      <button id="addDown">Direction: Down</button>
+      <button id="addLoopLeft">Loop: Left</button>
+      <button id="addLoopRight">Loop: Right</button>
+      <button id="addCorkscrewLeft">Corkscrew: Left</button>
+      <button id="addCorkscrewRight">Corkscrew: Right</button>
+      <button id="placeSection" class="good wide">Place section</button>
+      <button id="snapStart" class="secondary wide">Snap / close loop to start</button>
+    </div>
+
+    <div class="panel-section">
+      <label>Cart speed <span class="value" id="speedValue">12</span>
+        <input id="speedSlider" type="range" min="4" max="28" step="1" value="12" />
+      </label>
+      <div class="grid">
+        <button id="testCoaster" class="good">Test coaster</button>
+        <button id="viewMode" class="secondary">View: Third person</button>
+        <button id="stopTest" class="secondary">Stop test</button>
+        <button id="undo" class="secondary">Undo</button>
+        <button id="clear" class="warning wide">Clear track</button>
+      </div>
+    </div>
+
+    <div id="status">Choose a direction, loop, or corkscrew, then press Place section. The translucent preview shows the next track section before you place it. Stunt size mostly changes the loop/corkscrew body, not the lead-in or lead-out.</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="./rollercoaster.js"></script>
+</body>
+</html>
