@@ -48,6 +48,29 @@
       letter-spacing: 0.01em;
     }
 
+
+    #ui.testing {
+      width: 236px;
+      background: rgba(15, 19, 30, 0.62);
+    }
+
+    #ui.testing h1,
+    #ui.testing .builder-controls,
+    #ui.testing #undo,
+    #ui.testing #clear {
+      display: none;
+    }
+
+    #ui.testing .ride-controls {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    #ui.testing .action-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .panel-section {
       margin-top: 9px;
       padding-top: 9px;
@@ -171,7 +194,7 @@
   <div id="ui">
     <h1>Roller Coasterr</h1>
 
-    <div class="panel-section">
+    <div class="panel-section builder-controls">
       <label>Length <span class="value" id="lengthValue">14</span>
         <input id="lengthSlider" type="range" min="5" max="30" step="1" value="14" />
       </label>
@@ -183,7 +206,7 @@
       </label>
     </div>
 
-    <div class="panel-section grid direction-grid" aria-label="Choose next track section">
+    <div class="panel-section grid direction-grid builder-controls" aria-label="Choose next track section">
       <button id="addStraight" class="icon-button selected" aria-label="Straight" title="Straight">↑</button>
       <button id="addLeft" class="icon-button" aria-label="Left" title="Left">←</button>
       <button id="addRight" class="icon-button" aria-label="Right" title="Right">→</button>
@@ -197,7 +220,7 @@
       <button id="snapStart" class="secondary wide small-text-button">Snap loop</button>
     </div>
 
-    <div class="panel-section">
+    <div class="panel-section ride-controls">
       <label>Speed <span class="value" id="speedValue">12</span>
         <input id="speedSlider" type="range" min="4" max="28" step="1" value="12" />
       </label>

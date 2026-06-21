@@ -123,6 +123,7 @@
   scene.add(cart);
 
   const ui = {
+    panel: document.getElementById('ui'),
     lengthSlider: document.getElementById('lengthSlider'),
     angleSlider: document.getElementById('angleSlider'),
     speedSlider: document.getElementById('speedSlider'),
@@ -610,6 +611,7 @@
   }
 
   function updateTestButton() {
+    if (ui.panel) ui.panel.classList.toggle('testing', isTesting);
     if (!ui.testCoaster) return;
     ui.testCoaster.textContent = isTesting ? '■' : '▶';
     ui.testCoaster.setAttribute('aria-label', isTesting ? 'Stop test' : 'Start test');
