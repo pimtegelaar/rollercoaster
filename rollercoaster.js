@@ -650,7 +650,7 @@
       addTube(right, 0.075, materials.rail);
       addTube(sampledPoints, 0.035, materials.centerLine);
       addSleepers(left, right);
-      addSupports(sampledPoints);
+      addSupports(sampledPoints, trackGroup, materials.support, true, sampledFrames);
     }
 
     updatePreviewSection();
@@ -679,7 +679,7 @@
     addTube(right, 0.075, previewMaterials.rail, previewGroup, false);
     addTube(previewPoints, 0.035, previewMaterials.centerLine, previewGroup, false);
     addSleepers(left, right, previewGroup, previewMaterials.sleeper, false);
-    addSupports(previewPoints, previewGroup, previewMaterials.support, false);
+    addSupports(previewPoints, previewGroup, previewMaterials.support, false, previewFrames);
   }
 
   function sampleTrackPoints() {
@@ -815,11 +815,14 @@
     }
   }
 
-  function addSupports(centerPoints, group = trackGroup, material = materials.support, shadows = true) {
+  function addSupports(centerPoints, group = trackGroup, material = materials.support, shadows = true, frames = null) {
     const step = 16;
     for (let i = 0; i < centerPoints.length; i += step) {
       const point = centerPoints[i];
       if (point.y < 1.1) continue;
+
+      const frame = frames ? frames[i] : (sampledFrames[i] || null);
+      if (frame && frame.normal.y < 0.1) continue;
 
       const top = point.clone().add(new THREE.Vector3(0, -0.15, 0));
       const bottom = new THREE.Vector3(point.x, 0.05, point.z);
