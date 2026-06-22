@@ -380,44 +380,23 @@
     const frame = frameFromDirection(startDir);
     const size = Number(ui.stuntSizeSlider.value);
 
-    // Keep the lead-in and lead-out comfortably long and nearly fixed. The size
-    // slider should mostly make the corkscrew body wider/taller, not yank the
-    // track sideways right at the start or force a snap-back at the end.
-    const radius = size * 0.36;
-    const leadInLength = 6.2;
-    const leadOutLength = 7.2;
-    const rollSpan = 17.5 + Math.max(0, size - 12) * 0.14;
-    const totalSpan = leadInLength + rollSpan + leadOutLength;
+    const span = 10 + size * 0.5;
+    const humpHeight = 3 + size * 0.2;
+    const sideAmplitude = 3 + size * 0.25;
     const twistSign = type === 'corkscrewLeft' ? -1 : 1;
+    const totalRoll = Math.PI * 2 * -twistSign;
     const points = [];
 
     for (let i = 0; i <= STUNT_POINT_COUNT; i++) {
-      const t = i / STUNT_POINT_COUNT;
-      const distance = totalSpan * t;
-      let sideOffset = 0;
-      let upOffset = 0;
-
-      if (distance > leadInLength && distance < leadInLength + rollSpan) {
-        const u = (distance - leadInLength) / rollSpan;
-
-        // Ease the phase itself so the centerline tangent is forward at the
-        // start and end of the roll. A separate fade keeps the first/last
-        // quarters gentle instead of causing a sharp lateral pull.
-        const easedPhase = smootherStep(u);
-        const theta = easedPhase * Math.PI * 2 * twistSign;
-        const fadeIn = smootherStep(u / 0.30);
-        const fadeOut = 1 - smootherStep((u - 0.70) / 0.30);
-        const envelope = fadeIn * fadeOut;
-        const activeRadius = radius * envelope;
-
-        sideOffset = Math.sin(theta) * activeRadius;
-        upOffset = (1 - Math.cos(theta)) * activeRadius * 0.76;
-      }
+      const u = i / STUNT_POINT_COUNT;
+      const vertEnv = u < 0.5 ? smootherStep(2 * u) : smootherStep(2 * (1 - u));
+      const verticalOffset = vertEnv * humpHeight;
+      const lateralOffset = Math.sin(u * Math.PI * 2) * vertEnv * sideAmplitude * twistSign;
 
       const point = start.clone()
-        .addScaledVector(frame.forward, distance)
-        .addScaledVector(frame.side, sideOffset)
-        .addScaledVector(frame.normal, upOffset);
+        .addScaledVector(frame.forward, span * u)
+        .addScaledVector(frame.normal, verticalOffset)
+        .addScaledVector(frame.side, lateralOffset);
       point.y = Math.max(0.7, point.y);
       points.push(point);
     }
@@ -425,7 +404,7 @@
     const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.45);
     const end = points[points.length - 1].clone();
     const endDir = startDir.clone();
-    return { type, curve, startDir, endDir, start, end, length: estimatePointLength(points), angle: 360, stuntSize: size, isStunt: true };
+    return { type, curve, startDir, endDir, start, end, length: estimatePointLength(points), angle: 360, stuntSize: size, isStunt: true, roll: totalRoll };
   }
 
   function smoothStep(t) {
@@ -641,6 +620,7 @@
 
     sampledPoints = sampleTrackPoints();
     sampledFrames = buildTrackFrames(sampledPoints);
+    applyRollToFrames(sampledFrames, sampleRollAngles());
     rebuildDistanceTable();
     updateEndpointHelpers();
 
@@ -674,6 +654,14 @@
     if (previewPoints.length < 2) return;
 
     const previewFrames = buildTrackFrames(previewPoints);
+    if (previewSegment.roll) {
+      const previewRolls = [];
+      const divisions = previewPoints.length - 1;
+      for (let j = 0; j < previewPoints.length; j++) {
+        previewRolls.push(smootherStep(j / divisions) * previewSegment.roll);
+      }
+      applyRollToFrames(previewFrames, previewRolls);
+    }
     const { left, right } = createRailPointSets(previewPoints, 0.48, previewFrames);
     addTube(left, 0.075, previewMaterials.rail, previewGroup, false);
     addTube(right, 0.075, previewMaterials.rail, previewGroup, false);
@@ -691,6 +679,38 @@
       points.push(...segmentPoints);
     }
     return points;
+  }
+
+  function sampleRollAngles() {
+    const rolls = [];
+    for (let i = 0; i < trackSegments.length; i++) {
+      const seg = trackSegments[i];
+      const divisions = seg.isStunt ? STUNT_POINT_COUNT : TRACK_SAMPLES_PER_SECTION;
+      const startJ = i > 0 ? 1 : 0;
+      for (let j = startJ; j <= divisions; j++) {
+        rolls.push(seg.roll !== undefined ? smootherStep(j / divisions) * seg.roll : null);
+      }
+    }
+    return rolls;
+  }
+
+  function applyRollToFrames(frames, rolls) {
+    for (let i = 0; i < frames.length; i++) {
+      if (rolls[i] === null || rolls[i] === undefined) continue;
+      const roll = rolls[i];
+      const frame = frames[i];
+      const fwd = frame.forward;
+
+      let upN = worldUp.clone().sub(fwd.clone().multiplyScalar(worldUp.dot(fwd)));
+      if (upN.lengthSq() < 0.0001) upN.set(0, 0, 1);
+      upN.normalize();
+      const upS = new THREE.Vector3().crossVectors(fwd, upN).normalize();
+
+      const c = Math.cos(roll);
+      const s = Math.sin(roll);
+      frame.normal.set(c * upN.x + s * upS.x, c * upN.y + s * upS.y, c * upN.z + s * upS.z);
+      frame.side.set(-s * upN.x + c * upS.x, -s * upN.y + c * upS.y, -s * upN.z + c * upS.z);
+    }
   }
 
   function rebuildDistanceTable() {
