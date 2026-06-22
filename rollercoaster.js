@@ -35,8 +35,36 @@
 
   const worldUp = new THREE.Vector3(0, 1, 0);
 
+  const grassTexture = (() => {
+    const size = 512;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+
+    ctx.fillStyle = '#5fa861';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let i = 0; i < 60000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const brightness = 0.85 + Math.random() * 0.3;
+      const r = Math.floor(95 * brightness);
+      const g = Math.floor((140 + Math.random() * 40) * brightness);
+      const b = Math.floor(80 * brightness);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, y, 1 + Math.random() * 1.5, 1 + Math.random() * 2.5);
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(26, 26);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  })();
+
   const materials = {
-    ground: new THREE.MeshStandardMaterial({ color: 0x5fa861, roughness: 0.92 }),
+    ground: new THREE.MeshStandardMaterial({ map: grassTexture, roughness: 0.92 }),
     rail: new THREE.MeshStandardMaterial({ color: 0xcdd4df, metalness: 0.55, roughness: 0.25 }),
     sleeper: new THREE.MeshStandardMaterial({ color: 0x6c4a2f, roughness: 0.75 }),
     support: new THREE.MeshStandardMaterial({ color: 0x7c8799, metalness: 0.3, roughness: 0.42 }),
