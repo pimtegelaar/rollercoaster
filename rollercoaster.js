@@ -94,6 +94,7 @@
   const TRAIN_CAR_SPACING = 2.55;
   const TRAIN_RAIL_CLEARANCE = 0.015;
   const STUNT_POINT_COUNT = 192;
+  const GRAVITY = 15.0;
 
   const previewMaterials = {
     rail: makePreviewMaterial(materials.rail),
@@ -180,7 +181,8 @@
   let selectedSectionType = 'straight';
   let isTesting = false;
   let cartDistance = 0;
-  let cartSpeed = Number(ui.speedSlider.value);
+  let minCartSpeed = Number(ui.speedSlider.value);
+  let cartSpeed = minCartSpeed;
   let viewMode = 'third';
 
   const keys = new Set();
@@ -230,7 +232,7 @@
     });
     ui.speedSlider.addEventListener('input', () => {
       ui.speedValue.textContent = ui.speedSlider.value;
-      cartSpeed = Number(ui.speedSlider.value);
+      minCartSpeed = Number(ui.speedSlider.value);
     });
 
     window.addEventListener('keydown', (event) => {
@@ -602,7 +604,7 @@
     isTesting = true;
     cart.visible = true;
     cartDistance = 0;
-    cartSpeed = Number(ui.speedSlider.value);
+    cartSpeed = minCartSpeed;
     updateTestButton();
     updatePreviewSection();
     updateCart(0);
@@ -1083,6 +1085,10 @@
   }
 
   function updateCart(dt) {
+    const currentState = pointAtDistance(cartDistance);
+    cartSpeed += -GRAVITY * currentState.tangent.y * dt;
+    cartSpeed = Math.max(minCartSpeed, cartSpeed);
+
     cartDistance += cartSpeed * dt;
 
     if (cartDistance >= totalTrackLength) {
