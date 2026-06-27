@@ -229,9 +229,12 @@
         <button id="viewMode" class="secondary small-text-button" aria-label="Toggle view" title="Toggle first/third person view">3rd</button>
         <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
         <button id="clear" class="warning small-text-button">Clear</button>
+        <button id="exportTrack" class="secondary small-text-button" style="grid-column: span 2" title="Export coaster as JSON">Export</button>
+        <button id="importTrack" class="secondary small-text-button" style="grid-column: span 2" title="Import coaster from JSON">Import</button>
       </div>
     </div>
   </div>
+  <input type="file" id="importFile" accept=".json" style="display:none">
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="rollercoaster.js"></script>

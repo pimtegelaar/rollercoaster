@@ -215,6 +215,12 @@
     document.getElementById('snapStart').addEventListener('click', snapToStart);
     document.getElementById('undo').addEventListener('click', undoSection);
     document.getElementById('clear').addEventListener('click', clearTrack);
+    document.getElementById('exportTrack').addEventListener('click', exportTrack);
+    document.getElementById('importTrack').addEventListener('click', () => document.getElementById('importFile').click());
+    document.getElementById('importFile').addEventListener('change', (e) => {
+      if (e.target.files.length) importTrack(e.target.files[0]);
+      e.target.value = '';
+    });
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.viewMode.addEventListener('click', toggleViewMode);
 
@@ -1396,6 +1402,120 @@
   function setStatus(message) {
     if (ui.status) ui.status.textContent = message;
     else if (window.console && typeof console.info === 'function') console.info(message);
+  }
+
+  function exportTrack() {
+    const data = {
+      version: 1,
+      minSpeed: Number(ui.speedSlider.value),
+      segments: trackSegments.map(seg => {
+        if (seg.isSnap) return { type: 'snap' };
+        if (seg.isStunt) return { type: seg.type, stuntSize: seg.stuntSize };
+        return { type: seg.type, length: seg.length, angle: seg.angle };
+      })
+    };
+    const json = JSON.stringify(data, null, 2);
+    const count = trackSegments.length;
+    const label = `Exported ${count} segment${count !== 1 ? 's' : ''} as JSON.`;
+    const file = new File([json], 'rollercoaster.json', { type: 'application/json' });
+
+    const downloadFallback = () => {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rollercoaster.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(label);
+    };
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Roller Coaster' })
+        .then(() => setStatus(label))
+        .catch(err => { if (err.name === 'AbortError') return; downloadFallback(); });
+    } else {
+      downloadFallback();
+    }
+  }
+
+  function importTrack(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      let data;
+      try {
+        data = JSON.parse(e.target.result);
+      } catch {
+        setStatus('Import failed: file is not valid JSON.');
+        return;
+      }
+      if (!data || !Array.isArray(data.segments)) {
+        setStatus('Import failed: missing segments array.');
+        return;
+      }
+
+      if (isTesting) stopTest();
+      trackSegments.length = 0;
+      isClosedLoop = false;
+      currentPos = initialPos.clone();
+      currentDir = initialDir.clone();
+
+      if (data.minSpeed != null) {
+        const speed = Math.max(4, Math.min(28, Number(data.minSpeed)));
+        ui.speedSlider.value = speed;
+        ui.speedValue.textContent = speed;
+        minCartSpeed = speed;
+      }
+
+      for (const saved of data.segments) {
+        if (!saved.type) continue;
+
+        if (saved.type === 'snap') {
+          const snapStart = currentPos.clone();
+          const snapEnd = initialPos.clone();
+          const snapStartDir = currentDir.clone().normalize();
+          const snapEndDir = initialDir.clone().normalize();
+          const gap = snapStart.distanceTo(snapEnd);
+          if (gap < 0.15) {
+            isClosedLoop = true;
+            currentPos = initialPos.clone();
+            currentDir = initialDir.clone();
+          } else {
+            const handle = Math.max(2.5, Math.min(gap * 0.45, 20));
+            const p1 = snapStart.clone().addScaledVector(snapStartDir, handle);
+            const p2 = snapEnd.clone().addScaledVector(snapEndDir, -handle);
+            const curve = new THREE.CubicBezierCurve3(snapStart, p1, p2, snapEnd);
+            trackSegments.push({ type: 'snap', curve, startDir: snapStartDir, endDir: snapEndDir, start: snapStart, end: snapEnd, length: gap, angle: 0, isSnap: true });
+            isClosedLoop = true;
+            currentPos = initialPos.clone();
+            currentDir = initialDir.clone();
+          }
+          break;
+        }
+
+        if (saved.type === 'loopLeft' || saved.type === 'loopRight' ||
+            saved.type === 'corkscrewLeft' || saved.type === 'corkscrewRight') {
+          const size = Math.max(7, Math.min(30, Number(saved.stuntSize) || 12));
+          ui.stuntSizeSlider.value = size;
+          ui.stuntSizeValue.textContent = size;
+        } else {
+          const length = Math.max(5, Math.min(30, Number(saved.length) || 14));
+          const angle = Math.max(5, Math.min(60, Number(saved.angle) || 20));
+          ui.lengthSlider.value = length;
+          ui.angleSlider.value = angle;
+          ui.lengthValue.textContent = length;
+          ui.angleValue.textContent = angle + '°';
+        }
+
+        const segment = buildSectionData(saved.type);
+        trackSegments.push(segment);
+        currentPos = segment.end.clone();
+        currentDir = segment.endDir.clone();
+      }
+
+      rebuildTrackMeshes();
+      setStatus(`Imported ${trackSegments.length} segment${trackSegments.length !== 1 ? 's' : ''}. Track length: ${totalTrackLength.toFixed(1)} units.`);
+    };
+    reader.readAsText(file);
   }
 
   function labelForType(type) {
