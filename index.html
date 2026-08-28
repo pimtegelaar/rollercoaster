@@ -67,6 +67,14 @@
       display: none;
     }
 
+    #speedControl {
+      display: none;
+    }
+
+    #ui.testing #speedControl {
+      display: block;
+    }
+
     #ui.testing #viewMode {
       display: flex;
     }
@@ -181,6 +189,27 @@
       color: #dbe2f2;
     }
 
+    .slider-panel {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    #lengthControl,
+    #stuntSizeControl {
+      grid-row: 1;
+      grid-column: 1;
+    }
+
+    #angleControl {
+      grid-row: 2;
+      grid-column: 1;
+    }
+
+    .slider-panel .slot-hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     input[type="range"] {
       width: 100%;
       margin-top: 3px;
@@ -235,15 +264,15 @@
   <div id="ui">
     <h1>Roller Coasterr</h1>
 
-    <div class="panel-section builder-controls">
-      <label>Length <span class="value" id="lengthValue">14</span>
+    <div class="panel-section builder-controls slider-panel">
+      <label id="lengthControl">Length <span class="value" id="lengthValue">14</span>
         <input id="lengthSlider" type="range" min="5" max="30" step="1" value="14" />
       </label>
-      <label>Angle <span class="value" id="angleValue">20°</span>
-        <input id="angleSlider" type="range" min="5" max="60" step="1" value="20" />
-      </label>
-      <label>Loop size <span class="value" id="stuntSizeValue">12</span>
+      <label id="stuntSizeControl">Loop size <span class="value" id="stuntSizeValue">12</span>
         <input id="stuntSizeSlider" type="range" min="7" max="30" step="1" value="12" />
+      </label>
+      <label id="angleControl">Angle <span class="value" id="angleValue">20°</span>
+        <input id="angleSlider" type="range" min="5" max="60" step="1" value="20" />
       </label>
     </div>
 
@@ -260,7 +289,7 @@
     </div>
 
     <div class="panel-section ride-controls">
-      <label>Min Speed <span class="value" id="speedValue">12</span>
+      <label id="speedControl">Min Speed <span class="value" id="speedValue">12</span>
         <input id="speedSlider" type="range" min="4" max="28" step="1" value="12" />
       </label>
       <div class="grid action-grid">

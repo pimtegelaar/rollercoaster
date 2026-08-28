@@ -161,6 +161,9 @@
     angleValue: document.getElementById('angleValue'),
     speedValue: document.getElementById('speedValue'),
     stuntSizeValue: document.getElementById('stuntSizeValue'),
+    lengthControl: document.getElementById('lengthControl'),
+    angleControl: document.getElementById('angleControl'),
+    stuntSizeControl: document.getElementById('stuntSizeControl'),
     status: document.getElementById('status'),
     viewModeFirst: document.getElementById('viewModeFirst'),
     viewModeThird: document.getElementById('viewModeThird'),
@@ -287,6 +290,7 @@
     });
 
     updateDirectionButtons();
+    updateSectionControls();
     updateTestButton();
     updateViewModeButton();
   }
@@ -294,8 +298,19 @@
   function selectSectionType(type) {
     selectedSectionType = type;
     updateDirectionButtons();
+    updateSectionControls();
     updatePreviewSection();
     setStatus(`${labelForType(type)} selected. Press Place section to add it to the track.`);
+  }
+
+  function updateSectionControls() {
+    const hasAngle = ['left', 'right', 'up', 'down'].includes(selectedSectionType);
+    const hasLength = ['straight', 'left', 'right', 'up', 'down'].includes(selectedSectionType);
+    const hasLoopSize = ['loopLeft', 'loopRight'].includes(selectedSectionType);
+
+    ui.angleControl.classList.toggle('slot-hidden', !hasAngle);
+    ui.lengthControl.classList.toggle('slot-hidden', !hasLength);
+    ui.stuntSizeControl.classList.toggle('slot-hidden', !hasLoopSize);
   }
 
   function updateDirectionButtons() {
