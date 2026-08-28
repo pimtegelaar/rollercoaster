@@ -209,8 +209,6 @@
     document.getElementById('addDown').addEventListener('click', () => selectSectionType('down'));
     document.getElementById('addLoopLeft').addEventListener('click', () => selectSectionType('loopLeft'));
     document.getElementById('addLoopRight').addEventListener('click', () => selectSectionType('loopRight'));
-    document.getElementById('addCorkscrewLeft').addEventListener('click', () => selectSectionType('corkscrewLeft'));
-    document.getElementById('addCorkscrewRight').addEventListener('click', () => selectSectionType('corkscrewRight'));
     ui.placeSection.addEventListener('click', placeSelectedSection);
     document.getElementById('snapStart').addEventListener('click', snapToStart);
     document.getElementById('undo').addEventListener('click', undoSection);
@@ -306,9 +304,7 @@
       up: document.getElementById('addUp'),
       down: document.getElementById('addDown'),
       loopLeft: document.getElementById('addLoopLeft'),
-      loopRight: document.getElementById('addLoopRight'),
-      corkscrewLeft: document.getElementById('addCorkscrewLeft'),
-      corkscrewRight: document.getElementById('addCorkscrewRight')
+      loopRight: document.getElementById('addLoopRight')
     };
 
     for (const [type, button] of Object.entries(buttonsByType)) {

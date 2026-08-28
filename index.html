@@ -57,8 +57,18 @@
     #ui.testing h1,
     #ui.testing .builder-controls,
     #ui.testing #undo,
-    #ui.testing #clear {
+    #ui.testing #clear,
+    #ui.testing #exportTrack,
+    #ui.testing #importTrack {
       display: none;
+    }
+
+    #viewMode {
+      display: none;
+    }
+
+    #ui.testing #viewMode {
+      display: block;
     }
 
     #ui.testing .ride-controls {
@@ -214,8 +224,6 @@
       <button id="addDown" class="icon-button" aria-label="Down" title="Down">↘</button>
       <button id="addLoopLeft" class="icon-button" aria-label="Left loop" title="Left loop">↺</button>
       <button id="addLoopRight" class="icon-button" aria-label="Right loop" title="Right loop">↻</button>
-      <button id="addCorkscrewLeft" class="icon-button" aria-label="Left corkscrew" title="Left corkscrew">⟲</button>
-      <button id="addCorkscrewRight" class="icon-button" aria-label="Right corkscrew" title="Right corkscrew">⟳</button>
       <button id="placeSection" class="good wide small-text-button">Place</button>
       <button id="snapStart" class="secondary wide small-text-button">Snap loop</button>
     </div>
