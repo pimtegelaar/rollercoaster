@@ -162,7 +162,8 @@
     speedValue: document.getElementById('speedValue'),
     stuntSizeValue: document.getElementById('stuntSizeValue'),
     status: document.getElementById('status'),
-    viewMode: document.getElementById('viewMode'),
+    viewModeFirst: document.getElementById('viewModeFirst'),
+    viewModeThird: document.getElementById('viewModeThird'),
     placeSection: document.getElementById('placeSection'),
     testCoaster: document.getElementById('testCoaster')
   };
@@ -220,7 +221,8 @@
       e.target.value = '';
     });
     ui.testCoaster.addEventListener('click', toggleTest);
-    ui.viewMode.addEventListener('click', toggleViewMode);
+    ui.viewModeFirst.addEventListener('click', () => setViewMode('first'));
+    ui.viewModeThird.addEventListener('click', () => setViewMode('third'));
 
     ui.lengthSlider.addEventListener('input', () => {
       ui.lengthValue.textContent = ui.lengthSlider.value;
@@ -631,17 +633,19 @@
     ui.testCoaster.classList.toggle('warning', isTesting);
   }
 
-  function toggleViewMode() {
-    viewMode = viewMode === 'third' ? 'first' : 'third';
+  function setViewMode(mode) {
+    if (viewMode === mode) return;
+    viewMode = mode;
     updateViewModeButton();
     setStatus(`Camera view set to ${viewMode === 'third' ? 'third person' : 'first person'}.`);
   }
 
   function updateViewModeButton() {
-    if (!ui.viewMode) return;
-    ui.viewMode.textContent = viewMode === 'third' ? '3rd' : '1st';
-    ui.viewMode.setAttribute('aria-label', viewMode === 'third' ? 'Switch to first person view' : 'Switch to third person view');
-    ui.viewMode.title = viewMode === 'third' ? 'Switch to first person view' : 'Switch to third person view';
+    if (!ui.viewModeFirst || !ui.viewModeThird) return;
+    ui.viewModeFirst.classList.toggle('selected', viewMode === 'first');
+    ui.viewModeFirst.setAttribute('aria-pressed', viewMode === 'first');
+    ui.viewModeThird.classList.toggle('selected', viewMode === 'third');
+    ui.viewModeThird.setAttribute('aria-pressed', viewMode === 'third');
   }
 
   function rebuildTrackMeshes() {

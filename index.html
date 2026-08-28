@@ -68,7 +68,7 @@
     }
 
     #ui.testing #viewMode {
-      display: block;
+      display: flex;
     }
 
     #ui.testing .ride-controls {
@@ -102,6 +102,37 @@
     }
 
     .wide { grid-column: 1 / -1; }
+
+    .view-toggle {
+      display: flex;
+      border-radius: 10px;
+      background: #20242f;
+      overflow: hidden;
+    }
+
+    .view-toggle-option {
+      flex: 1;
+      border-radius: 0;
+      background: #4b5567;
+      color: #fff;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+      transform: translateY(0);
+    }
+
+    .view-toggle-option:first-child {
+      border-radius: 10px 0 0 10px;
+    }
+
+    .view-toggle-option:last-child {
+      border-radius: 0 10px 10px 0;
+    }
+
+    .view-toggle-option.selected {
+      color: #101219;
+      background: #ffd166;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+      transform: translateY(2px);
+    }
 
     button {
       border: 0;
@@ -234,7 +265,10 @@
       </label>
       <div class="grid action-grid">
         <button id="testCoaster" class="good icon-button" aria-label="Start test" title="Start test">▶</button>
-        <button id="viewMode" class="secondary small-text-button" aria-label="Toggle view" title="Toggle first/third person view">3rd</button>
+        <div id="viewMode" class="view-toggle" role="group" aria-label="Camera view">
+          <button id="viewModeFirst" type="button" class="view-toggle-option small-text-button" data-view="first" aria-pressed="false" title="First person view">1st</button>
+          <button id="viewModeThird" type="button" class="view-toggle-option small-text-button selected" data-view="third" aria-pressed="true" title="Third person view">3rd</button>
+        </div>
         <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
         <button id="clear" class="warning small-text-button">Clear</button>
         <button id="exportTrack" class="secondary small-text-button" style="grid-column: span 2" title="Export coaster as JSON">Export</button>
