@@ -168,6 +168,7 @@
     viewModeFirst: document.getElementById('viewModeFirst'),
     viewModeThird: document.getElementById('viewModeThird'),
     placeSection: document.getElementById('placeSection'),
+    snapStart: document.getElementById('snapStart'),
     testCoaster: document.getElementById('testCoaster')
   };
 
@@ -694,6 +695,7 @@
     scene.add(previewGroup);
 
     if (ui.placeSection) ui.placeSection.disabled = isClosedLoop;
+    if (ui.snapStart) ui.snapStart.disabled = trackSegments.length === 0 || isClosedLoop;
 
     if (isTesting || isClosedLoop) {
       previewGroup.visible = false;
