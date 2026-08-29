@@ -170,12 +170,15 @@
     placeSection: document.getElementById('placeSection'),
     snapStart: document.getElementById('snapStart'),
     testCoaster: document.getElementById('testCoaster'),
-    clear: document.getElementById('clear')
+    clear: document.getElementById('clear'),
+    undo: document.getElementById('undo'),
+    redo: document.getElementById('redo')
   };
 
   const initialPos = new THREE.Vector3(0, 2, 0);
   const initialDir = new THREE.Vector3(1, 0, 0);
   const trackSegments = [];
+  const redoStack = [];
   let currentPos = initialPos.clone();
   let currentDir = initialDir.clone();
   let isClosedLoop = false;
@@ -217,7 +220,8 @@
     document.getElementById('addLoopRight').addEventListener('click', () => selectSectionType('loopRight'));
     ui.placeSection.addEventListener('click', placeSelectedSection);
     document.getElementById('snapStart').addEventListener('click', snapToStart);
-    document.getElementById('undo').addEventListener('click', undoSection);
+    ui.undo.addEventListener('click', undoSection);
+    ui.redo.addEventListener('click', redoSection);
     document.getElementById('clear').addEventListener('click', clearTrack);
     document.getElementById('exportTrack').addEventListener('click', exportTrack);
     document.getElementById('importTrack').addEventListener('click', () => document.getElementById('importFile').click());
@@ -494,6 +498,7 @@
 
     const segment = buildSectionData(type);
     trackSegments.push(segment);
+    redoStack.length = 0;
     currentPos = segment.end.clone();
     currentDir = segment.endDir.clone();
     rebuildTrackMeshes();
@@ -519,6 +524,7 @@
 
     if (gap < 0.15) {
       isClosedLoop = true;
+      redoStack.length = 0;
       currentPos = initialPos.clone();
       currentDir = initialDir.clone();
       rebuildTrackMeshes();
@@ -544,6 +550,7 @@
       angle: 0,
       isSnap: true
     });
+    redoStack.length = 0;
 
     isClosedLoop = true;
     currentPos = initialPos.clone();
@@ -587,7 +594,7 @@
       return;
     }
 
-    trackSegments.pop();
+    redoStack.push(trackSegments.pop());
     isClosedLoop = trackSegments.length > 0 && trackSegments[trackSegments.length - 1].isSnap === true;
     if (trackSegments.length === 0) {
       currentPos = initialPos.clone();
@@ -601,9 +608,26 @@
     setStatus(`Removed the last section. Sections: ${trackSegments.length}.`);
   }
 
+  function redoSection() {
+    if (isTesting) stopTest();
+    if (redoStack.length === 0) {
+      setStatus('There is no section to redo.');
+      return;
+    }
+
+    const segment = redoStack.pop();
+    trackSegments.push(segment);
+    isClosedLoop = segment.isSnap === true;
+    currentPos = segment.end ? segment.end.clone() : segment.curve.v3.clone();
+    currentDir = segment.endDir.clone();
+    rebuildTrackMeshes();
+    setStatus(`Restored the section. Sections: ${trackSegments.length}.`);
+  }
+
   function clearTrack() {
     if (isTesting) stopTest();
     trackSegments.length = 0;
+    redoStack.length = 0;
     isClosedLoop = false;
     currentPos = initialPos.clone();
     currentDir = initialDir.clone();
@@ -699,6 +723,8 @@
     if (ui.snapStart) ui.snapStart.disabled = trackSegments.length === 0 || isClosedLoop;
     if (ui.testCoaster) ui.testCoaster.disabled = !isTesting && (sampledPoints.length < 2 || totalTrackLength < 2);
     if (ui.clear) ui.clear.disabled = trackSegments.length === 0;
+    if (ui.undo) ui.undo.disabled = trackSegments.length === 0;
+    if (ui.redo) ui.redo.disabled = redoStack.length === 0;
 
     if (isTesting || isClosedLoop) {
       previewGroup.visible = false;
@@ -1475,6 +1501,7 @@
 
       if (isTesting) stopTest();
       trackSegments.length = 0;
+      redoStack.length = 0;
       isClosedLoop = false;
       currentPos = initialPos.clone();
       currentDir = initialDir.clone();
