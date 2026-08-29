@@ -224,7 +224,11 @@
     ui.redo.addEventListener('click', redoSection);
     document.getElementById('clear').addEventListener('click', clearTrack);
     document.getElementById('exportTrack').addEventListener('click', exportTrack);
-    document.getElementById('importTrack').addEventListener('click', () => document.getElementById('importFile').click());
+    document.getElementById('importTrack').addEventListener('click', () => {
+      if (confirm('Are you sure you want to import? This will replace your current progress with the imported roller coaster.')) {
+        document.getElementById('importFile').click();
+      }
+    });
     document.getElementById('importFile').addEventListener('change', (e) => {
       if (e.target.files.length) importTrack(e.target.files[0]);
       e.target.value = '';

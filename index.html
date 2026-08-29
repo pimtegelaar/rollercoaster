@@ -161,6 +161,18 @@
       line-height: 1;
     }
 
+    .icon-button svg {
+      width: 21px;
+      height: 21px;
+      display: block;
+      margin: 0 auto;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .small-text-button {
       font-size: 12px;
       line-height: 1.05;
@@ -302,8 +314,12 @@
         <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
         <button id="redo" class="secondary icon-button" aria-label="Redo" title="Redo">↷</button>
         <button id="clear" class="warning small-text-button">Clear</button>
-        <button id="exportTrack" class="secondary small-text-button" style="grid-column: span 2" title="Export coaster as JSON">Export</button>
-        <button id="importTrack" class="secondary small-text-button" style="grid-column: span 2" title="Import coaster from JSON">Import</button>
+        <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M4 19h16"/></svg>
+        </button>
+        <button id="importTrack" class="secondary icon-button" aria-label="Import" title="Import coaster from JSON">
+          <svg viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 8l5-5 5 5"/><path d="M4 19h16"/></svg>
+        </button>
       </div>
     </div>
   </div>
