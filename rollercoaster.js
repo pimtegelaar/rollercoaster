@@ -696,6 +696,7 @@
 
     if (ui.placeSection) ui.placeSection.disabled = isClosedLoop;
     if (ui.snapStart) ui.snapStart.disabled = trackSegments.length === 0 || isClosedLoop;
+    if (ui.testCoaster) ui.testCoaster.disabled = !isTesting && (sampledPoints.length < 2 || totalTrackLength < 2);
 
     if (isTesting || isClosedLoop) {
       previewGroup.visible = false;
