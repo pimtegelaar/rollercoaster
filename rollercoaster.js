@@ -169,7 +169,8 @@
     viewModeThird: document.getElementById('viewModeThird'),
     placeSection: document.getElementById('placeSection'),
     snapStart: document.getElementById('snapStart'),
-    testCoaster: document.getElementById('testCoaster')
+    testCoaster: document.getElementById('testCoaster'),
+    clear: document.getElementById('clear')
   };
 
   const initialPos = new THREE.Vector3(0, 2, 0);
@@ -697,6 +698,7 @@
     if (ui.placeSection) ui.placeSection.disabled = isClosedLoop;
     if (ui.snapStart) ui.snapStart.disabled = trackSegments.length === 0 || isClosedLoop;
     if (ui.testCoaster) ui.testCoaster.disabled = !isTesting && (sampledPoints.length < 2 || totalTrackLength < 2);
+    if (ui.clear) ui.clear.disabled = trackSegments.length === 0;
 
     if (isTesting || isClosedLoop) {
       previewGroup.visible = false;
