@@ -259,15 +259,19 @@
         left: 8px;
         width: min(292px, calc(100vw - 16px));
         max-height: calc(100dvh - 16px);
-        padding: 9px;
+        padding: 6px;
       }
 
-      #ui h1 { font-size: 15px; }
-      .panel-section { margin-top: 7px; padding-top: 7px; }
-      .grid { gap: 6px; }
-      button { min-height: 34px; border-radius: 9px; }
-      .icon-button { font-size: 19px; }
-      label { margin: 4px 0; font-size: 10.5px; }
+      #ui h1 { font-size: 13px; margin-bottom: 2px; }
+      .panel-section { margin-top: 4px; padding-top: 4px; }
+      .grid { gap: 4px; }
+      .direction-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      button { min-height: 26px; border-radius: 7px; padding: 4px 5px; }
+      .icon-button { font-size: 15px; padding: 4px; }
+      .icon-button svg { width: 15px; height: 15px; }
+      .small-text-button { font-size: 10px; }
+      label { margin: 2px 0; font-size: 9.5px; }
+      input[type="range"] { margin-top: 1px; }
     }
   </style>
 </head>
