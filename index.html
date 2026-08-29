@@ -112,6 +112,12 @@
 
     .wide { grid-column: 1 / -1; }
 
+    .button-pair-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
     .view-toggle {
       display: flex;
       border-radius: 10px;
@@ -306,20 +312,24 @@
         <input id="speedSlider" type="range" min="4" max="28" step="1" value="12" />
       </label>
       <div class="grid action-grid">
-        <button id="testCoaster" class="good icon-button" aria-label="Start test" title="Start test">▶</button>
+        <button id="testCoaster" class="good wide icon-button" aria-label="Start test" title="Start test">▶</button>
         <div id="viewMode" class="view-toggle" role="group" aria-label="Camera view">
           <button id="viewModeFirst" type="button" class="view-toggle-option small-text-button" data-view="first" aria-pressed="false" title="First person view">1st</button>
           <button id="viewModeThird" type="button" class="view-toggle-option small-text-button selected" data-view="third" aria-pressed="true" title="Third person view">3rd</button>
         </div>
-        <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
-        <button id="redo" class="secondary icon-button" aria-label="Redo" title="Redo">↷</button>
-        <button id="clear" class="warning small-text-button">Clear</button>
-        <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">
-          <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M4 19h16"/></svg>
-        </button>
-        <button id="importTrack" class="secondary icon-button" aria-label="Import" title="Import coaster from JSON">
-          <svg viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 8l5-5 5 5"/><path d="M4 19h16"/></svg>
-        </button>
+        <div class="wide button-pair-row">
+          <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
+          <button id="redo" class="secondary icon-button" aria-label="Redo" title="Redo">↷</button>
+        </div>
+        <button id="clear" class="warning wide small-text-button">Clear</button>
+        <div class="wide button-pair-row">
+          <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">
+            <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M4 19h16"/></svg>
+          </button>
+          <button id="importTrack" class="secondary icon-button" aria-label="Import" title="Import coaster from JSON">
+            <svg viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 8l5-5 5 5"/><path d="M4 19h16"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
