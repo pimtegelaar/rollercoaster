@@ -222,7 +222,11 @@
     document.getElementById('snapStart').addEventListener('click', snapToStart);
     ui.undo.addEventListener('click', undoSection);
     ui.redo.addEventListener('click', redoSection);
-    document.getElementById('clear').addEventListener('click', clearTrack);
+    document.getElementById('clear').addEventListener('click', () => {
+      if (confirm('Are you sure you want to start over? This will clear your current track.')) {
+        clearTrack();
+      }
+    });
     document.getElementById('exportTrack').addEventListener('click', exportTrack);
     document.getElementById('importTrack').addEventListener('click', () => {
       if (confirm('Are you sure you want to import? This will replace your current progress with the imported roller coaster.')) {
