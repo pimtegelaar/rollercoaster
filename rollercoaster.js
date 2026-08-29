@@ -16,7 +16,7 @@
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8eb6ff);
-  scene.fog = new THREE.Fog(0x8eb6ff, 70, 190);
+  scene.fog = new THREE.Fog(0x8eb6ff, 150, 550);
 
   const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
   const zoom = {
@@ -58,7 +58,7 @@
 
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(26, 26);
+    tex.repeat.set(80, 80);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   })();
@@ -116,12 +116,12 @@
   sun.shadow.camera.bottom = -70;
   scene.add(sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), materials.ground);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), materials.ground);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const grid = new THREE.GridHelper(260, 52, 0xffffff, 0xffffff);
+  const grid = new THREE.GridHelper(800, 160, 0xffffff, 0xffffff);
   grid.material.opacity = 0.18;
   grid.material.transparent = true;
   scene.add(grid);
