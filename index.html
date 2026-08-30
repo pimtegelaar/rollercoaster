@@ -96,6 +96,12 @@
       border-top: 1px solid rgba(255, 255, 255, 0.12);
     }
 
+    #ui > .panel-section:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -284,8 +290,6 @@
   </div>
 
   <div id="ui">
-    <h1>Roller Coaster</h1>
-
     <div class="panel-section builder-controls slider-panel">
       <label id="lengthControl">Length <span class="value" id="lengthValue">14</span>
         <input id="lengthSlider" type="range" min="5" max="30" step="1" value="14" />
