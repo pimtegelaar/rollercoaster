@@ -1483,7 +1483,17 @@
       setStatus(label);
     };
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (window.showSaveFilePicker) {
+      window.showSaveFilePicker({
+        suggestedName: 'rollercoaster.json',
+        types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }]
+      }).then(async (handle) => {
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        setStatus(label);
+      }).catch(err => { if (err.name === 'AbortError') return; downloadFallback(); });
+    } else if (navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], title: 'Roller Coaster' })
         .then(() => setStatus(label))
         .catch(err => { if (err.name === 'AbortError') return; downloadFallback(); });
