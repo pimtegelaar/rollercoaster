@@ -193,6 +193,10 @@
   let cartDistance = 0;
   let minCartSpeed = Number(ui.speedSlider.value);
   let cartSpeed = minCartSpeed;
+  let isFlying = false;
+  const flightPosition = new THREE.Vector3();
+  const flightVelocity = new THREE.Vector3();
+  const flightForward = new THREE.Vector3(0, 0, 1);
   let viewMode = 'third';
 
   const keys = new Set();
@@ -694,6 +698,7 @@
     };
 
     isTesting = true;
+    isFlying = false;
     cart.visible = true;
     cartDistance = 0;
     cartSpeed = minCartSpeed;
@@ -705,6 +710,7 @@
 
   function stopTest() {
     isTesting = false;
+    isFlying = false;
     cart.visible = false;
     camera.up.set(0, 1, 0);
 
@@ -1195,6 +1201,11 @@
   }
 
   function updateCart(dt) {
+    if (isFlying) {
+      updateFlight(dt);
+      return;
+    }
+
     const currentState = pointAtDistance(cartDistance);
     cartSpeed += -GRAVITY * currentState.tangent.y * dt;
     cartSpeed = Math.max(minCartSpeed, cartSpeed);
@@ -1206,19 +1217,50 @@
         cartDistance %= totalTrackLength;
       } else {
         cartDistance = totalTrackLength;
-        const endState = placeTrain(cartDistance);
-        followCart(endState.position, endState.tangent, endState.frame);
-        isTesting = false;
-        cart.visible = false;
-        updateTestButton();
-        updatePreviewSection();
-        setStatus('The train reached the end of the track. Add more sections, use Snap loop, or press Play again.');
+        startFlight();
         return;
       }
     }
 
     const leadState = placeTrain(cartDistance);
     followCart(leadState.position, leadState.tangent, leadState.frame);
+  }
+
+  function startFlight() {
+    const endState = placeTrain(cartDistance);
+    isFlying = true;
+    flightPosition.copy(endState.position);
+    flightForward.copy(endState.tangent).normalize();
+    flightVelocity.copy(flightForward).multiplyScalar(cartSpeed);
+    setStatus('The train flew off the end of the track!');
+  }
+
+  function updateFlight(dt) {
+    flightVelocity.y -= GRAVITY * dt;
+    flightPosition.addScaledVector(flightVelocity, dt);
+
+    if (flightVelocity.lengthSq() > 0.01) {
+      flightForward.copy(flightVelocity).normalize();
+    }
+
+    const frame = frameFromDirection(flightForward);
+
+    cart.children.forEach((carObject) => {
+      const offset = carObject.userData.trainOffset || 0;
+      const carPosition = flightPosition.clone().addScaledVector(flightForward, -offset);
+      placeCarOnTrack(carObject, carPosition, flightForward, frame);
+    });
+
+    followCart(flightPosition, flightForward, frame);
+
+    if (flightPosition.y <= 0.4) {
+      isFlying = false;
+      isTesting = false;
+      cart.visible = false;
+      updateTestButton();
+      updatePreviewSection();
+      setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
+    }
   }
 
   function placeTrain(distance) {
