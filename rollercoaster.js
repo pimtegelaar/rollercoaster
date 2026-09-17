@@ -389,17 +389,34 @@
 
     // Keep the approach and exit fairly stable while the slider mostly changes
     // the loop body. This avoids giant lead-ins/lead-outs when the loop gets big.
-    const radius = size * 0.78;
+    // Real loops aren't circular: a circle holds curvature (and so G-force at
+    // a given speed) constant all the way round, but speed is highest at the
+    // bottom and lowest at the top. Real loops use a wide, gentle radius at
+    // the bottom and a much tighter one at the top - a "teardrop"/clothoid
+    // shape that ends up taller than it is wide.
+    const bottomRadius = size * 0.95;
+    const topRadius = size * 0.45;
     const leadInLength = 3.8;
     const leadOutLength = 5.2;
     const loopDrift = 2.8 + Math.max(0, size - 12) * 0.08;
-    const sideShift = THREE.MathUtils.clamp(radius * 0.42, 2.8, 5.6);
+    const sideShift = THREE.MathUtils.clamp(bottomRadius * 0.42, 2.8, 5.6);
     const lateralSign = type === 'loopLeft' ? -1 : 1;
     const leadInPortion = 0.17;
     const leadOutPortion = 0.20;
     const loopStart = leadInPortion;
     const loopEnd = 1 - leadOutPortion;
     const points = [];
+
+    // Radius of curvature as a function of tangent angle psi (0 = bottom
+    // entry, PI = top of the loop, 2*PI = bottom exit). Integrating
+    // cos(psi)*r and sin(psi)*r traces the actual teardrop path - unlike a
+    // plain sin/cos circle, this makes the curve genuinely tighter up top.
+    const loopRadius = (psi) => topRadius + (bottomRadius - topRadius) * (1 + Math.cos(psi)) / 2;
+
+    let bodyX = 0;
+    let bodyY = 0;
+    let prevPsi = 0;
+    let prevR = loopRadius(0);
 
     for (let i = 0; i <= STUNT_POINT_COUNT; i++) {
       const t = i / STUNT_POINT_COUNT;
@@ -412,15 +429,29 @@
         forwardOffset = leadInLength * u;
       } else if (t <= loopEnd) {
         const u = (t - loopStart) / (loopEnd - loopStart);
-        const theta = u * Math.PI * 2;
+        // Ease the angle traversal (rather than the radius) so the turn rate
+        // - and so curvature - eases down to zero right at both ends. That's
+        // what actually makes the join with the straight lead-in/out smooth;
+        // easing the radius instead just blows up the point spacing there.
+        const psi = smootherStep(u) * Math.PI * 2;
+        const r = loopRadius(psi);
 
-        // Circular loop body: same tangent at start and finish, rounder shape.
-        forwardOffset = leadInLength + loopDrift * u + Math.sin(theta) * radius;
-        verticalOffset = (1 - Math.cos(theta)) * radius;
+        // Trapezoidal integration of the teardrop path since the last sample.
+        bodyX += (Math.cos(prevPsi) * prevR + Math.cos(psi) * r) / 2 * (psi - prevPsi);
+        bodyY += (Math.sin(prevPsi) * prevR + Math.sin(psi) * r) / 2 * (psi - prevPsi);
+        prevPsi = psi;
+        prevR = r;
+
+        forwardOffset = leadInLength + loopDrift * u + bodyX;
+        verticalOffset = bodyY;
         sideOffset = smootherStep(u) * sideShift * lateralSign;
       } else {
+        // bodyX/bodyY hold the teardrop's final integrated position (the
+        // path doesn't return to sideOffset-relative zero the way a plain
+        // circle did), so the lead-out has to continue from there.
         const u = (t - loopEnd) / leadOutPortion;
-        forwardOffset = leadInLength + loopDrift + leadOutLength * u;
+        forwardOffset = leadInLength + loopDrift + bodyX + leadOutLength * u;
+        verticalOffset = bodyY;
         sideOffset = sideShift * lateralSign;
       }
 
