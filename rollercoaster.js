@@ -30,6 +30,7 @@
   camera.rotation.order = 'YXZ';
 
   let initialEuler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+  let preRideCameraState = null;
   let cameraYaw = initialEuler.y;
   let cameraPitch = initialEuler.x;
 
@@ -654,6 +655,13 @@
       return;
     }
 
+    preRideCameraState = {
+      position: camera.position.clone(),
+      fov: camera.fov,
+      yaw: cameraYaw,
+      pitch: cameraPitch,
+    };
+
     isTesting = true;
     cart.visible = true;
     cartDistance = 0;
@@ -668,6 +676,16 @@
     isTesting = false;
     cart.visible = false;
     camera.up.set(0, 1, 0);
+
+    if (preRideCameraState) {
+      camera.position.copy(preRideCameraState.position);
+      camera.fov = preRideCameraState.fov;
+      camera.updateProjectionMatrix();
+      cameraYaw = preRideCameraState.yaw;
+      cameraPitch = preRideCameraState.pitch;
+      preRideCameraState = null;
+    }
+
     updateTestButton();
     updatePreviewSection();
     setStatus(isClosedLoop ? 'Test stopped. The coaster remains closed; press Undo to reopen it or Play to ride again.' : 'Test stopped. WASD, mouse drag, and touch controls are back on the free camera.');
