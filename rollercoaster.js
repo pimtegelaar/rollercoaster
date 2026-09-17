@@ -667,6 +667,7 @@
   function stopTest() {
     isTesting = false;
     cart.visible = false;
+    camera.up.set(0, 1, 0);
     updateTestButton();
     updatePreviewSection();
     setStatus(isClosedLoop ? 'Test stopped. The coaster remains closed; press Undo to reopen it or Play to ride again.' : 'Test stopped. WASD, mouse drag, and touch controls are back on the free camera.');
@@ -1257,10 +1258,12 @@
     if (viewMode === 'first') {
       const camPos = position.clone().addScaledVector(direction, 0.75).addScaledVector(normal, 1.08);
       camera.position.lerp(camPos, 0.42);
+      camera.up.lerp(normal, 0.42).normalize();
       camera.lookAt(position.clone().addScaledVector(direction, 8).addScaledVector(normal, 0.82));
     } else {
       const camPos = position.clone().addScaledVector(direction, -9.25).addScaledVector(normal, 4.35);
       camera.position.lerp(camPos, 0.14);
+      camera.up.lerp(normal, 0.14).normalize();
       camera.lookAt(position.clone().addScaledVector(direction, 4.2).addScaledVector(normal, 1.35));
     }
   }
