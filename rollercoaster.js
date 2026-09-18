@@ -34,6 +34,13 @@
   let cameraYaw = initialEuler.y;
   let cameraPitch = initialEuler.x;
 
+  let rideLookYaw = 0;
+  let rideLookPitch = 0;
+  const rideLook = {
+    maxYaw: Math.PI * 0.88,
+    maxPitch: THREE.MathUtils.degToRad(70)
+  };
+
   const worldUp = new THREE.Vector3(0, 1, 0);
 
   const grassTexture = (() => {
@@ -288,8 +295,9 @@
     });
 
     canvas.addEventListener('mousemove', (event) => {
-      if (!dragging || isTesting) return;
-      rotateFreeCameraByPixels(event.movementX, event.movementY);
+      if (!dragging) return;
+      if (isTesting) rotateRideLookByPixels(event.movementX, event.movementY);
+      else rotateFreeCameraByPixels(event.movementX, event.movementY);
     });
 
     canvas.addEventListener('wheel', (event) => {
@@ -701,11 +709,13 @@
     isFlying = false;
     cart.visible = true;
     cartDistance = 0;
+    rideLookYaw = 0;
+    rideLookPitch = 0;
     cartSpeed = minCartSpeed;
     updateTestButton();
     updatePreviewSection();
     updateCart(0);
-    setStatus(`Testing the two-car train in ${viewMode === 'first' ? 'first' : 'third'} person${isClosedLoop ? ' on a closed loop' : ''}. Press the stop button to return to free camera.`);
+    setStatus(`Testing the two-car train in ${viewMode === 'first' ? 'first' : 'third'} person${isClosedLoop ? ' on a closed loop' : ''}. Drag to look around. Press the stop button to return to free camera.`);
   }
 
   function stopTest() {
@@ -713,6 +723,8 @@
     isFlying = false;
     cart.visible = false;
     camera.up.set(0, 1, 0);
+    rideLookYaw = 0;
+    rideLookPitch = 0;
 
     if (preRideCameraState) {
       camera.position.copy(preRideCameraState.position);
@@ -1261,6 +1273,8 @@
       isTesting = false;
       cart.visible = false;
       camera.up.set(0, 1, 0);
+      rideLookYaw = 0;
+      rideLookPitch = 0;
 
       if (preRideCameraState) {
         camera.position.copy(preRideCameraState.position);
@@ -1355,21 +1369,32 @@
     return { position, tangent, frame };
   }
 
+  function rideLookDirection(direction, normal, side) {
+    if (rideLookYaw === 0 && rideLookPitch === 0) return direction.clone();
+
+    const yawQuat = new THREE.Quaternion().setFromAxisAngle(normal, rideLookYaw);
+    const yawedForward = direction.clone().applyQuaternion(yawQuat);
+    const yawedSide = side.clone().applyQuaternion(yawQuat);
+    const pitchQuat = new THREE.Quaternion().setFromAxisAngle(yawedSide, rideLookPitch);
+    return yawedForward.applyQuaternion(pitchQuat).normalize();
+  }
+
   function followCart(position, tangent, trackFrame) {
     const frame = trackFrame || makeTrackFrame(tangent);
     const direction = frame.forward;
     const normal = frame.normal;
+    const lookDirection = rideLookDirection(direction, normal, frame.side);
 
     if (viewMode === 'first') {
       const camPos = position.clone().addScaledVector(direction, 0.75).addScaledVector(normal, 1.08);
       camera.position.lerp(camPos, 0.42);
       camera.up.lerp(normal, 0.42).normalize();
-      camera.lookAt(position.clone().addScaledVector(direction, 8).addScaledVector(normal, 0.82));
+      camera.lookAt(position.clone().addScaledVector(lookDirection, 8).addScaledVector(normal, 0.82));
     } else {
       const camPos = position.clone().addScaledVector(direction, -9.25).addScaledVector(normal, 4.35);
       camera.position.lerp(camPos, 0.14);
       camera.up.lerp(normal, 0.14).normalize();
-      camera.lookAt(position.clone().addScaledVector(direction, 4.2).addScaledVector(normal, 1.35));
+      camera.lookAt(camera.position.clone().addScaledVector(lookDirection, 13).addScaledVector(normal, 1.35));
     }
   }
 
@@ -1392,6 +1417,11 @@
 
     camera.fov = nextFov;
     camera.updateProjectionMatrix();
+  }
+
+  function rotateRideLookByPixels(deltaX, deltaY) {
+    rideLookYaw = THREE.MathUtils.clamp(rideLookYaw - deltaX * 0.0022, -rideLook.maxYaw, rideLook.maxYaw);
+    rideLookPitch = THREE.MathUtils.clamp(rideLookPitch - deltaY * 0.0022, -rideLook.maxPitch, rideLook.maxPitch);
   }
 
   function rotateFreeCameraByPixels(deltaX, deltaY) {
@@ -1447,7 +1477,8 @@
       touchState.lastX = touch.clientX;
       touchState.lastY = touch.clientY;
 
-      if (!isTesting) rotateFreeCameraByPixels(deltaX, deltaY);
+      if (isTesting) rotateRideLookByPixels(deltaX, deltaY);
+      else rotateFreeCameraByPixels(deltaX, deltaY);
       return;
     }
 
