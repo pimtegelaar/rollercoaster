@@ -1260,6 +1260,17 @@
       isFlying = false;
       isTesting = false;
       cart.visible = false;
+      camera.up.set(0, 1, 0);
+
+      if (preRideCameraState) {
+        camera.position.copy(preRideCameraState.position);
+        camera.fov = preRideCameraState.fov;
+        camera.updateProjectionMatrix();
+        cameraYaw = preRideCameraState.yaw;
+        cameraPitch = preRideCameraState.pitch;
+        preRideCameraState = null;
+      }
+
       updateTestButton();
       updatePreviewSection();
       setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
