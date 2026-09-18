@@ -730,8 +730,11 @@
 
   function updateTestButton() {
     if (ui.panel) ui.panel.classList.toggle('testing', isTesting);
+    document.body.classList.toggle('riding', isTesting);
     if (!ui.testCoaster) return;
-    ui.testCoaster.textContent = isTesting ? '■' : '▶';
+    ui.testCoaster.innerHTML = isTesting
+      ? '<svg viewBox="0 0 24 24" class="fill-icon"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>'
+      : '<svg viewBox="0 0 24 24" class="fill-icon"><path d="M6 4l14 8-14 8V4z"/></svg>';
     ui.testCoaster.setAttribute('aria-label', isTesting ? 'Stop test' : 'Start test');
     ui.testCoaster.title = isTesting ? 'Stop test' : 'Start test';
     ui.testCoaster.classList.toggle('good', !isTesting);

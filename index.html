@@ -58,49 +58,47 @@
     }
 
 
-    #ui.testing {
-      width: 118px;
-      background: rgba(15, 19, 30, 0.62);
-    }
-
     #ui.testing ~ #sliderPanel {
       display: none;
     }
 
-    #ui.testing h1,
-    #ui.testing .builder-controls,
-    #ui.testing #undo,
-    #ui.testing #redo,
-    #ui.testing #clear,
-    #ui.testing #exportTrack,
-    #ui.testing #importTrack {
+    #ui.testing {
       display: none;
     }
 
-    #viewMode {
+    #playMenu {
+      position: fixed;
+      right: 10px;
+      top: 10px;
+      z-index: 5;
+    }
+
+    #playMenu #testCoaster {
+      width: 155px;
+      height: 60px;
+      font-size: 26px;
+    }
+
+    #rideMenu {
+      position: fixed;
+      right: 10px;
+      top: 84px;
+      width: 155px;
+      padding: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      background: rgba(15, 19, 30, 0.88);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(8px);
+      user-select: none;
       display: none;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 5;
     }
 
-    #speedControl {
-      display: none;
-    }
-
-    #ui.testing #speedControl {
-      display: block;
-    }
-
-    #ui.testing #viewMode {
+    body.riding #rideMenu {
       display: flex;
-    }
-
-    #ui.testing .ride-controls {
-      margin-top: 0;
-      padding-top: 0;
-      border-top: 0;
-    }
-
-    #ui.testing .action-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .panel-section {
@@ -198,6 +196,22 @@
       stroke-linejoin: round;
     }
 
+    .icon-button svg.fill-icon {
+      fill: currentColor;
+      stroke: none;
+    }
+
+    #playMenu #testCoaster {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #playMenu #testCoaster svg {
+      width: 26px;
+      height: 26px;
+    }
+
     .small-text-button {
       font-size: 12px;
       line-height: 1.05;
@@ -292,6 +306,30 @@
         padding: 6px;
       }
 
+      #playMenu {
+        right: 8px;
+        top: 8px;
+      }
+
+      #playMenu #testCoaster {
+        width: 96px;
+        height: 48px;
+        font-size: 20px;
+      }
+
+      #playMenu #testCoaster svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      #rideMenu {
+        right: 8px;
+        top: 64px;
+        width: 96px;
+        padding: 6px;
+        gap: 3px;
+      }
+
       #ui h1 { font-size: 13px; margin-bottom: 2px; }
       .panel-section { margin-top: 4px; padding-top: 4px; }
       .grid { gap: 4px; }
@@ -343,15 +381,7 @@
     </div>
 
     <div class="panel-section ride-controls">
-      <label id="speedControl">Min Speed <span class="value" id="speedValue">12</span>
-        <input id="speedSlider" type="range" min="4" max="28" step="1" value="12" />
-      </label>
-      <div class="grid action-grid">
-        <button id="testCoaster" class="good wide icon-button" aria-label="Start test" title="Start test">▶</button>
-        <div id="viewMode" class="view-toggle wide" role="group" aria-label="Camera view">
-          <button id="viewModeFirst" type="button" class="view-toggle-option small-text-button" data-view="first" aria-pressed="false" title="First person view">1st</button>
-          <button id="viewModeThird" type="button" class="view-toggle-option small-text-button selected" data-view="third" aria-pressed="true" title="Third person view">3rd</button>
-        </div>
+      <div class="grid">
         <div class="wide button-pair-row">
           <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
           <button id="redo" class="secondary icon-button" aria-label="Redo" title="Redo">↷</button>
@@ -380,6 +410,20 @@
       <input id="angleSlider" type="range" min="5" max="60" step="1" value="20" />
     </label>
   </div>
+  </div>
+
+  <div id="rideMenu">
+    <label id="speedControl">Min Speed <span class="value" id="speedValue">12</span>
+      <input id="speedSlider" type="range" min="4" max="28" step="1" value="12" />
+    </label>
+    <div id="viewMode" class="view-toggle" role="group" aria-label="Camera view">
+      <button id="viewModeFirst" type="button" class="view-toggle-option small-text-button" data-view="first" aria-pressed="false" title="First person view">1st</button>
+      <button id="viewModeThird" type="button" class="view-toggle-option small-text-button selected" data-view="third" aria-pressed="true" title="Third person view">3rd</button>
+    </div>
+  </div>
+
+  <div id="playMenu">
+    <button id="testCoaster" class="good icon-button" aria-label="Start test" title="Start test">▶</button>
   </div>
 
   <input type="file" id="importFile" accept=".json" style="display:none">
