@@ -100,7 +100,8 @@
 
   const TRACK_SAMPLES_PER_SECTION = 96;
   const TRAIN_CAR_SPACING = 2.55;
-  const TRAIN_RAIL_CLEARANCE = 0.015;
+  const RAIL_DROP_OFFSET = 0.22;
+  const TRAIN_RAIL_CLEARANCE = RAIL_DROP_OFFSET + 0.08;
   const STUNT_POINT_COUNT = 192;
   const GRAVITY = 15.0;
 
@@ -781,11 +782,11 @@
     updateEndpointHelpers();
 
     if (sampledPoints.length >= 2) {
-      const { left, right } = createRailPointSets(sampledPoints, 0.48, sampledFrames);
+      const { left, right } = createRailPointSets(sampledPoints, 0.48, sampledFrames, RAIL_DROP_OFFSET);
       addTube(left, 0.075, materials.rail);
       addTube(right, 0.075, materials.rail);
-      addTube(sampledPoints, 0.035, materials.centerLine);
-      addSleepers(left, right);
+      addTube(sampledPoints, 0.11, materials.centerLine);
+      addStruts(sampledPoints, left, right);
       addSupports(sampledPoints, trackGroup, materials.support, true, sampledFrames);
     }
 
@@ -823,11 +824,11 @@
       }
       applyRollToFrames(previewFrames, previewRolls);
     }
-    const { left, right } = createRailPointSets(previewPoints, 0.48, previewFrames);
+    const { left, right } = createRailPointSets(previewPoints, 0.48, previewFrames, RAIL_DROP_OFFSET);
     addTube(left, 0.075, previewMaterials.rail, previewGroup, false);
     addTube(right, 0.075, previewMaterials.rail, previewGroup, false);
-    addTube(previewPoints, 0.035, previewMaterials.centerLine, previewGroup, false);
-    addSleepers(left, right, previewGroup, previewMaterials.sleeper, false);
+    addTube(previewPoints, 0.11, previewMaterials.centerLine, previewGroup, false);
+    addStruts(previewPoints, left, right, previewGroup, previewMaterials.sleeper, false);
     addSupports(previewPoints, previewGroup, previewMaterials.support, false, previewFrames);
   }
 
@@ -883,7 +884,7 @@
     }
   }
 
-  function createRailPointSets(centerPoints, offset, frames = buildTrackFrames(centerPoints)) {
+  function createRailPointSets(centerPoints, offset, frames = buildTrackFrames(centerPoints), dropOffset = 0) {
     const left = [];
     const right = [];
 
@@ -892,8 +893,10 @@
         centerPoints[Math.min(centerPoints.length - 1, i + 1)].clone().sub(centerPoints[Math.max(0, i - 1)])
       );
       const side = frame.side.clone().normalize();
-      left.push(centerPoints[i].clone().addScaledVector(side, offset));
-      right.push(centerPoints[i].clone().addScaledVector(side, -offset));
+      const normal = frame.normal.clone().normalize();
+      const base = centerPoints[i].clone().addScaledVector(normal, dropOffset);
+      left.push(base.clone().addScaledVector(side, offset));
+      right.push(base.clone().addScaledVector(side, -offset));
     }
 
     return { left, right };
@@ -986,13 +989,23 @@
     group.add(mesh);
   }
 
-  function addSleepers(left, right, group = trackGroup, material = materials.sleeper, shadows = true) {
-    const step = 7;
-    for (let i = 0; i < left.length; i += step) {
-      const sleeper = cylinderBetween(left[i], right[i], 0.045, material, 8);
-      sleeper.castShadow = shadows;
-      sleeper.receiveShadow = shadows;
-      group.add(sleeper);
+  function addStruts(centerPoints, left, right, group = trackGroup, material = materials.sleeper, shadows = true) {
+    const spacing = 0.9;
+    let sinceLast = spacing;
+    for (let i = 0; i < centerPoints.length; i++) {
+      if (i > 0) sinceLast += centerPoints[i].distanceTo(centerPoints[i - 1]);
+      if (sinceLast < spacing) continue;
+      sinceLast = 0;
+
+      const strutLeft = cylinderBetween(centerPoints[i], left[i], 0.04, material, 8);
+      strutLeft.castShadow = shadows;
+      strutLeft.receiveShadow = shadows;
+      group.add(strutLeft);
+
+      const strutRight = cylinderBetween(centerPoints[i], right[i], 0.04, material, 8);
+      strutRight.castShadow = shadows;
+      strutRight.receiveShadow = shadows;
+      group.add(strutRight);
     }
   }
 
@@ -1386,10 +1399,11 @@
     const lookDirection = rideLookDirection(direction, normal, frame.side);
 
     if (viewMode === 'first') {
-      const camPos = position.clone().addScaledVector(direction, 0.75).addScaledVector(normal, 1.08);
+      const eyeHeight = 1.08 + TRAIN_RAIL_CLEARANCE;
+      const camPos = position.clone().addScaledVector(direction, 0.75).addScaledVector(normal, eyeHeight);
       camera.position.lerp(camPos, 0.42);
       camera.up.lerp(normal, 0.42).normalize();
-      camera.lookAt(position.clone().addScaledVector(lookDirection, 8).addScaledVector(normal, 0.82));
+      camera.lookAt(position.clone().addScaledVector(lookDirection, 8).addScaledVector(normal, eyeHeight - 0.26));
     } else {
       const camPos = position.clone().addScaledVector(direction, -9.25).addScaledVector(normal, 4.35);
       camera.position.lerp(camPos, 0.14);
