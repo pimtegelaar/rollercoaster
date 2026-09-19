@@ -151,6 +151,18 @@
       transform: translateY(0);
     }
 
+    .view-toggle-option svg {
+      width: 17px;
+      height: 17px;
+      display: block;
+      margin: 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .view-toggle-option:first-child {
       border-radius: 10px 0 0 10px;
     }
@@ -338,6 +350,7 @@
       .icon-button { font-size: 15px; padding: 4px; }
       .icon-button svg { width: 15px; height: 15px; }
       .small-text-button { font-size: 10px; }
+      .view-toggle-option svg { width: 13px; height: 13px; }
       label { margin: 2px 0; font-size: 9.5px; }
       input[type="range"] { margin-top: 1px; }
     }
@@ -419,6 +432,9 @@
     <div id="viewMode" class="view-toggle" role="group" aria-label="Camera view">
       <button id="viewModeFirst" type="button" class="view-toggle-option small-text-button" data-view="first" aria-pressed="false" title="First person view">1st</button>
       <button id="viewModeThird" type="button" class="view-toggle-option small-text-button selected" data-view="third" aria-pressed="true" title="Third person view">3rd</button>
+      <button id="viewModeFree" type="button" class="view-toggle-option small-text-button" data-view="free" aria-pressed="false" aria-label="Free camera view" title="Free camera view (drone)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.4"/><path d="M10.3 10.3L7 7"/><path d="M13.7 10.3L17 7"/><path d="M10.3 13.7L7 17"/><path d="M13.7 13.7L17 17"/><circle cx="5.5" cy="5.5" r="2.5"/><circle cx="18.5" cy="5.5" r="2.5"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      </button>
     </div>
   </div>
 

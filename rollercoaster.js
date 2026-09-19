@@ -103,6 +103,7 @@
   const RAIL_DROP_OFFSET = 0.22;
   const TRAIN_RAIL_CLEARANCE = RAIL_DROP_OFFSET + 0.08;
   const STUNT_POINT_COUNT = 192;
+  const SPINE_RADIUS = 0.11;
   const GRAVITY = 15.0;
 
   const previewMaterials = {
@@ -176,6 +177,7 @@
     status: document.getElementById('status'),
     viewModeFirst: document.getElementById('viewModeFirst'),
     viewModeThird: document.getElementById('viewModeThird'),
+    viewModeFree: document.getElementById('viewModeFree'),
     placeSection: document.getElementById('placeSection'),
     snapStart: document.getElementById('snapStart'),
     testCoaster: document.getElementById('testCoaster'),
@@ -253,6 +255,7 @@
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.viewModeFirst.addEventListener('click', () => setViewMode('first'));
     ui.viewModeThird.addEventListener('click', () => setViewMode('third'));
+    ui.viewModeFree.addEventListener('click', () => setViewMode('free'));
 
     ui.lengthSlider.addEventListener('input', () => {
       ui.lengthValue.textContent = ui.lengthSlider.value;
@@ -297,7 +300,7 @@
 
     canvas.addEventListener('mousemove', (event) => {
       if (!dragging) return;
-      if (isTesting) rotateRideLookByPixels(event.movementX, event.movementY);
+      if (isRideCameraActive()) rotateRideLookByPixels(event.movementX, event.movementY);
       else rotateFreeCameraByPixels(event.movementX, event.movementY);
     });
 
@@ -716,7 +719,8 @@
     updateTestButton();
     updatePreviewSection();
     updateCart(0);
-    setStatus(`Testing the two-car train in ${viewMode === 'first' ? 'first' : 'third'} person${isClosedLoop ? ' on a closed loop' : ''}. Drag to look around. Press the stop button to return to free camera.`);
+    const viewLabel = viewMode === 'free' ? 'free camera' : `${viewMode} person`;
+    setStatus(`Testing the two-car train in ${viewLabel}${isClosedLoop ? ' on a closed loop' : ''}. ${viewMode === 'free' ? 'WASD and drag to move the camera.' : 'Drag to look around.'} Press the stop button to return to free camera.`);
   }
 
   function stopTest() {
@@ -757,16 +761,31 @@
   function setViewMode(mode) {
     if (viewMode === mode) return;
     viewMode = mode;
+
+    if (viewMode === 'free' && isTesting) {
+      // Hand the current ride camera over to the free camera without a visible jump.
+      const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+      cameraYaw = euler.y;
+      cameraPitch = THREE.MathUtils.clamp(euler.x, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
+      camera.up.set(0, 1, 0);
+    }
+
     updateViewModeButton();
-    setStatus(`Camera view set to ${viewMode === 'third' ? 'third person' : 'first person'}.`);
+    const viewLabels = { first: 'first person', third: 'third person', free: 'free camera' };
+    setStatus(`Camera view set to ${viewLabels[viewMode]}.`);
   }
 
   function updateViewModeButton() {
-    if (!ui.viewModeFirst || !ui.viewModeThird) return;
-    ui.viewModeFirst.classList.toggle('selected', viewMode === 'first');
-    ui.viewModeFirst.setAttribute('aria-pressed', viewMode === 'first');
-    ui.viewModeThird.classList.toggle('selected', viewMode === 'third');
-    ui.viewModeThird.setAttribute('aria-pressed', viewMode === 'third');
+    const buttons = { first: ui.viewModeFirst, third: ui.viewModeThird, free: ui.viewModeFree };
+    Object.entries(buttons).forEach(([mode, button]) => {
+      if (!button) return;
+      button.classList.toggle('selected', viewMode === mode);
+      button.setAttribute('aria-pressed', viewMode === mode);
+    });
+  }
+
+  function isRideCameraActive() {
+    return isTesting && viewMode !== 'free';
   }
 
   function rebuildTrackMeshes() {
@@ -785,7 +804,7 @@
       const { left, right } = createRailPointSets(sampledPoints, 0.48, sampledFrames, RAIL_DROP_OFFSET);
       addTube(left, 0.075, materials.rail);
       addTube(right, 0.075, materials.rail);
-      addTube(sampledPoints, 0.11, materials.centerLine);
+      addTube(sampledPoints, SPINE_RADIUS, materials.centerLine);
       addStruts(sampledPoints, left, right);
       addSupports(sampledPoints, trackGroup, materials.support, true, sampledFrames);
     }
@@ -827,7 +846,7 @@
     const { left, right } = createRailPointSets(previewPoints, 0.48, previewFrames, RAIL_DROP_OFFSET);
     addTube(left, 0.075, previewMaterials.rail, previewGroup, false);
     addTube(right, 0.075, previewMaterials.rail, previewGroup, false);
-    addTube(previewPoints, 0.11, previewMaterials.centerLine, previewGroup, false);
+    addTube(previewPoints, SPINE_RADIUS, previewMaterials.centerLine, previewGroup, false);
     addStruts(previewPoints, left, right, previewGroup, previewMaterials.sleeper, false);
     addSupports(previewPoints, previewGroup, previewMaterials.support, false, previewFrames);
   }
@@ -1018,7 +1037,7 @@
       const frame = frames ? frames[i] : (sampledFrames[i] || null);
       if (frame && frame.normal.y < 0.1) continue;
 
-      const top = point.clone().add(new THREE.Vector3(0, -0.15, 0));
+      const top = point.clone();
       const bottom = new THREE.Vector3(point.x, 0.05, point.z);
       const post = cylinderBetween(bottom, top, 0.055, material, 10);
       post.castShadow = shadows;
@@ -1393,6 +1412,8 @@
   }
 
   function followCart(position, tangent, trackFrame) {
+    if (viewMode === 'free') return;
+
     const frame = trackFrame || makeTrackFrame(tangent);
     const direction = frame.forward;
     const normal = frame.normal;
@@ -1491,7 +1512,7 @@
       touchState.lastX = touch.clientX;
       touchState.lastY = touch.clientY;
 
-      if (isTesting) rotateRideLookByPixels(deltaX, deltaY);
+      if (isRideCameraActive()) rotateRideLookByPixels(deltaX, deltaY);
       else rotateFreeCameraByPixels(deltaX, deltaY);
       return;
     }
@@ -1505,7 +1526,7 @@
     const pinchDelta = touchState.lastPinchDistance - pinchDistance;
 
     zoomCamera(pinchDelta, zoom.pinchSensitivity);
-    if (!isTesting) panFreeCameraByPixels(centerDeltaX, centerDeltaY);
+    if (!isRideCameraActive()) panFreeCameraByPixels(centerDeltaX, centerDeltaY);
 
     touchState.lastCenterX = center.x;
     touchState.lastCenterY = center.y;
@@ -1595,7 +1616,7 @@
     directionArrow.visible = !isTesting && !isClosedLoop;
 
     if (isTesting) updateCart(dt);
-    else updateFreeCamera(dt);
+    if (!isRideCameraActive()) updateFreeCamera(dt);
 
     renderer.render(scene, camera);
   }
