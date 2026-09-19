@@ -73,10 +73,10 @@
 
   const materials = {
     ground: new THREE.MeshStandardMaterial({ map: grassTexture, roughness: 0.92 }),
-    rail: new THREE.MeshStandardMaterial({ color: 0xcdd4df, metalness: 0.55, roughness: 0.25 }),
-    sleeper: new THREE.MeshStandardMaterial({ color: 0x6c4a2f, roughness: 0.75 }),
+    rail: new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.55, roughness: 0.25 }),
+    sleeper: new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.75 }),
     support: new THREE.MeshStandardMaterial({ color: 0x7c8799, metalness: 0.3, roughness: 0.42 }),
-    centerLine: new THREE.MeshStandardMaterial({ color: 0x2e3543, roughness: 0.7 }),
+    centerLine: new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.7 }),
     endpoint: new THREE.MeshStandardMaterial({ color: 0xffdf4d, emissive: 0xffb000, emissiveIntensity: 0.65 }),
     cart: new THREE.MeshStandardMaterial({ color: 0xdc3545, roughness: 0.42 }),
     cartPanel: new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.38 }),
@@ -252,6 +252,12 @@
       if (e.target.files.length) importTrack(e.target.files[0]);
       e.target.value = '';
     });
+    const trackColorInput = document.getElementById('trackColorInput');
+    document.getElementById('trackColorButton').addEventListener('click', () => {
+      if (typeof trackColorInput.showPicker === 'function') trackColorInput.showPicker();
+      else trackColorInput.click();
+    });
+    trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.viewModeFirst.addEventListener('click', () => setViewMode('first'));
     ui.viewModeThird.addEventListener('click', () => setViewMode('third'));
@@ -1430,6 +1436,23 @@
       camera.position.lerp(camPos, 0.14);
       camera.up.lerp(normal, 0.14).normalize();
       camera.lookAt(camera.position.clone().addScaledVector(lookDirection, 13).addScaledVector(normal, 1.35));
+    }
+  }
+
+  // Rails use the picked color; struts and core tube are darker shades of it.
+  function setTrackColor(hex) {
+    const hsl = {};
+    new THREE.Color(hex).getHSL(hsl, THREE.SRGBColorSpace);
+    const shades = {
+      rail: 1,
+      sleeper: 0.82,
+      centerLine: 0.58
+    };
+
+    for (const [name, factor] of Object.entries(shades)) {
+      const color = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l * factor, THREE.SRGBColorSpace);
+      materials[name].color.copy(color);
+      previewMaterials[name].color.copy(color);
     }
   }
 
