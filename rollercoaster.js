@@ -213,6 +213,26 @@
 
   const keys = new Set();
   let dragging = false;
+  const doubleTap = {
+    lastTime: 0,
+    lastX: 0,
+    lastY: 0,
+    maxDelay: 300,
+    maxDistance: 30
+  };
+  const raycaster = new THREE.Raycaster();
+  const cameraGlide = {
+    active: false,
+    startTime: 0,
+    duration: 450,
+    fromPosition: new THREE.Vector3(),
+    toPosition: new THREE.Vector3(),
+    fromYaw: 0,
+    toYaw: 0,
+    fromPitch: 0,
+    toPitch: 0
+  };
+
   const touchState = {
     mode: 'none',
     lastX: 0,
@@ -290,6 +310,7 @@
     window.addEventListener('keydown', (event) => {
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ControlLeft', 'ControlRight'].includes(event.code)) {
         keys.add(event.code);
+        cancelCameraGlide();
         event.preventDefault();
       }
     });
@@ -299,6 +320,7 @@
     canvas.addEventListener('mousedown', (event) => {
       if (event.button !== 0) return;
       dragging = true;
+      cancelCameraGlide();
       if (typeof canvas.setPointerCapture === 'function' && event.pointerId !== undefined) {
         canvas.setPointerCapture(event.pointerId);
       }
@@ -319,8 +341,14 @@
 
     canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
+      cancelCameraGlide();
       zoomCamera(event.deltaY);
     }, { passive: false });
+
+    canvas.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      zoomToPoint(event.clientX, event.clientY);
+    });
 
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -1549,6 +1577,69 @@
     }
   }
 
+  function zoomToPoint(clientX, clientY) {
+    if (isRideCameraActive()) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+
+    const targets = [trackGroup, ground, cart].filter(Boolean);
+    const hits = raycaster.intersectObjects(targets, true);
+
+    const travelFraction = 0.5;
+    let travelDistance;
+    if (hits.length > 0) {
+      travelDistance = hits[0].distance * travelFraction;
+    } else {
+      travelDistance = 12;
+    }
+
+    const targetPosition = camera.position.clone().addScaledVector(raycaster.ray.direction, travelDistance);
+    targetPosition.y = Math.max(1.2, targetPosition.y);
+
+    // Re-aim the free camera's yaw/pitch at the point we're zooming toward
+    // so the glide ends looking at it, like Google Earth's double-click zoom.
+    const dir = raycaster.ray.direction;
+    const pitchLimit = Math.PI / 2 - 0.05;
+    const targetYaw = Math.atan2(-dir.x, -dir.z);
+    const targetPitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)), -pitchLimit, pitchLimit);
+
+    startCameraGlide(targetPosition, targetYaw, targetPitch);
+  }
+
+  function startCameraGlide(targetPosition, targetYaw, targetPitch) {
+    cameraGlide.active = true;
+    cameraGlide.startTime = performance.now();
+    cameraGlide.fromPosition.copy(camera.position);
+    cameraGlide.toPosition.copy(targetPosition);
+    cameraGlide.fromYaw = cameraYaw;
+    cameraGlide.fromPitch = cameraPitch;
+    // Take the shortest way around when interpolating yaw.
+    let yawDelta = targetYaw - cameraYaw;
+    yawDelta -= Math.round(yawDelta / (Math.PI * 2)) * Math.PI * 2;
+    cameraGlide.toYaw = cameraYaw + yawDelta;
+    cameraGlide.toPitch = targetPitch;
+  }
+
+  function cancelCameraGlide() {
+    cameraGlide.active = false;
+  }
+
+  function updateCameraGlide(now) {
+    if (!cameraGlide.active) return;
+
+    const t = THREE.MathUtils.clamp((now - cameraGlide.startTime) / cameraGlide.duration, 0, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+
+    camera.position.lerpVectors(cameraGlide.fromPosition, cameraGlide.toPosition, eased);
+    cameraYaw = THREE.MathUtils.lerp(cameraGlide.fromYaw, cameraGlide.toYaw, eased);
+    cameraPitch = THREE.MathUtils.lerp(cameraGlide.fromPitch, cameraGlide.toPitch, eased);
+
+    if (t >= 1) cameraGlide.active = false;
+  }
+
   function rotateRideLookByPixels(deltaX, deltaY) {
     rideLookYaw = THREE.MathUtils.clamp(rideLookYaw - deltaX * 0.0022, -rideLook.maxYaw, rideLook.maxYaw);
     rideLookPitch = THREE.MathUtils.clamp(rideLookPitch - deltaY * 0.0022, -rideLook.maxPitch, rideLook.maxPitch);
@@ -1583,6 +1674,19 @@
       touchState.mode = 'rotate';
       touchState.lastX = touch.clientX;
       touchState.lastY = touch.clientY;
+      cancelCameraGlide();
+
+      const now = performance.now();
+      const dx = touch.clientX - doubleTap.lastX;
+      const dy = touch.clientY - doubleTap.lastY;
+      if (now - doubleTap.lastTime < doubleTap.maxDelay && Math.hypot(dx, dy) < doubleTap.maxDistance) {
+        zoomToPoint(touch.clientX, touch.clientY);
+        doubleTap.lastTime = 0;
+      } else {
+        doubleTap.lastTime = now;
+        doubleTap.lastX = touch.clientX;
+        doubleTap.lastY = touch.clientY;
+      }
       return;
     }
 
@@ -1648,6 +1752,7 @@
   }
 
   function beginPinchPan(touches) {
+    cancelCameraGlide();
     const center = touchCenter(touches);
     touchState.mode = 'pinchPan';
     touchState.lastCenterX = center.x;
@@ -1713,7 +1818,10 @@
     directionArrow.visible = !isTesting && !isClosedLoop;
 
     if (isTesting) updateCart(dt);
-    if (!isRideCameraActive()) updateFreeCamera(dt);
+    if (!isRideCameraActive()) {
+      updateCameraGlide(now);
+      updateFreeCamera(dt);
+    }
 
     renderer.render(scene, camera);
   }
