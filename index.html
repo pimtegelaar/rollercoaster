@@ -71,12 +71,24 @@
       right: 10px;
       top: 10px;
       z-index: 5;
+      display: flex;
+      gap: 8px;
     }
 
     #playMenu #testCoaster {
       width: 155px;
       height: 60px;
       font-size: 26px;
+    }
+
+    #playMenu #fullscreenToggle {
+      width: 60px;
+      height: 60px;
+    }
+
+    #playMenu #fullscreenToggle svg {
+      width: 24px;
+      height: 24px;
     }
 
     #rideMenu {
@@ -353,6 +365,10 @@
         top: 8px;
       }
 
+      #playMenu {
+        gap: 6px;
+      }
+
       #playMenu #testCoaster {
         width: 96px;
         height: 48px;
@@ -362,6 +378,16 @@
       #playMenu #testCoaster svg {
         width: 20px;
         height: 20px;
+      }
+
+      #playMenu #fullscreenToggle {
+        width: 48px;
+        height: 48px;
+      }
+
+      #playMenu #fullscreenToggle svg {
+        width: 18px;
+        height: 18px;
       }
 
       #rideMenu {
@@ -477,6 +503,9 @@
 
   <div id="playMenu">
     <button id="testCoaster" class="good icon-button" aria-label="Start test" title="Start test">▶</button>
+    <button id="fullscreenToggle" class="secondary icon-button" aria-label="Toggle full screen" title="Toggle full screen">
+      <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    </button>
   </div>
 
   <input type="file" id="importFile" accept=".json" style="display:none">

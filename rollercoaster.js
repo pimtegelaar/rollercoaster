@@ -181,6 +181,7 @@
     placeSection: document.getElementById('placeSection'),
     snapStart: document.getElementById('snapStart'),
     testCoaster: document.getElementById('testCoaster'),
+    fullscreenToggle: document.getElementById('fullscreenToggle'),
     clear: document.getElementById('clear'),
     undo: document.getElementById('undo'),
     redo: document.getElementById('redo')
@@ -259,6 +260,8 @@
     });
     trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
     ui.testCoaster.addEventListener('click', toggleTest);
+    ui.fullscreenToggle.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', updateFullscreenButton);
     ui.viewModeFirst.addEventListener('click', () => setViewMode('first'));
     ui.viewModeThird.addEventListener('click', () => setViewMode('third'));
     ui.viewModeFree.addEventListener('click', () => setViewMode('free'));
@@ -762,6 +765,22 @@
     ui.testCoaster.title = isTesting ? 'Stop test' : 'Start test';
     ui.testCoaster.classList.toggle('good', !isTesting);
     ui.testCoaster.classList.toggle('warning', isTesting);
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }
+
+  function updateFullscreenButton() {
+    if (!ui.fullscreenToggle) return;
+    const isFullscreen = !!document.fullscreenElement;
+    ui.fullscreenToggle.setAttribute('aria-label', isFullscreen ? 'Exit full screen' : 'Enter full screen');
+    ui.fullscreenToggle.title = isFullscreen ? 'Exit full screen' : 'Enter full screen';
+    ui.fullscreenToggle.classList.toggle('selected', isFullscreen);
   }
 
   function setViewMode(mode) {
