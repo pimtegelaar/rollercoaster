@@ -8,6 +8,7 @@
     html, body {
       margin: 0;
       height: 100%;
+      height: 100dvh;
       overflow: hidden;
       overscroll-behavior: none;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -21,7 +22,22 @@
       display: block;
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       touch-action: none;
+    }
+
+    /* Fallback for browsers (iOS Safari) with no Fullscreen API for
+       non-video elements: pin the page over the viewport so it fills as
+       much space as possible when the browser chrome collapses. */
+    body.fake-fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    body.fake-fullscreen #game {
+      height: 100vh;
     }
 
     #uiWrap {

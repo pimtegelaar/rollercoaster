@@ -263,6 +263,9 @@
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.fullscreenToggle.addEventListener('click', toggleFullscreen);
     document.addEventListener('fullscreenchange', updateFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+    document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+    document.addEventListener('MSFullscreenChange', updateFullscreenButton);
     ui.viewModeFirst.addEventListener('click', () => setViewMode('first'));
     ui.viewModeThird.addEventListener('click', () => setViewMode('third'));
     ui.viewModeFree.addEventListener('click', () => setViewMode('free'));
@@ -768,17 +771,60 @@
     ui.testCoaster.classList.toggle('warning', isTesting);
   }
 
+  function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement
+      || document.mozFullScreenElement || document.msFullscreenElement || null;
+  }
+
   function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+    const isFullscreen = !!getFullscreenElement() || document.body.classList.contains('fake-fullscreen');
+    if (isFullscreen) {
+      exitFullscreen();
     } else {
-      document.documentElement.requestFullscreen();
+      enterFullscreen();
     }
+  }
+
+  function enterFullscreen() {
+    const el = document.documentElement;
+    const request = el.requestFullscreen || el.webkitRequestFullscreen
+      || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (request) {
+      const result = request.call(el);
+      if (result && typeof result.catch === 'function') {
+        result.catch(() => enterFakeFullscreen());
+      }
+    } else {
+      enterFakeFullscreen();
+    }
+  }
+
+  function exitFullscreen() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen
+      || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (getFullscreenElement() && exit) {
+      exit.call(document);
+    }
+    exitFakeFullscreen();
+  }
+
+  function enterFakeFullscreen() {
+    document.body.classList.add('fake-fullscreen');
+    // iOS Safari has no Fullscreen API for non-video elements. Scrolling the
+    // page briefly nudges Safari into collapsing its address/toolbar chrome.
+    window.scrollTo(0, 1);
+    setTimeout(() => window.scrollTo(0, 0), 50);
+    updateFullscreenButton();
+  }
+
+  function exitFakeFullscreen() {
+    document.body.classList.remove('fake-fullscreen');
+    updateFullscreenButton();
   }
 
   function updateFullscreenButton() {
     if (!ui.fullscreenToggle) return;
-    const isFullscreen = !!document.fullscreenElement;
+    const isFullscreen = !!getFullscreenElement() || document.body.classList.contains('fake-fullscreen');
     ui.fullscreenToggle.setAttribute('aria-label', isFullscreen ? 'Exit full screen' : 'Enter full screen');
     ui.fullscreenToggle.title = isFullscreen ? 'Exit full screen' : 'Enter full screen';
     ui.fullscreenToggle.classList.toggle('selected', isFullscreen);
