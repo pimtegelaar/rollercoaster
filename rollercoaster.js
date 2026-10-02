@@ -284,7 +284,7 @@
     });
 
     window.addEventListener('keydown', (event) => {
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) {
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ControlLeft', 'ControlRight'].includes(event.code)) {
         keys.add(event.code);
         event.preventDefault();
       }
@@ -1640,6 +1640,8 @@
     if (keys.has('KeyS')) move.addScaledVector(yawForward, -1);
     if (keys.has('KeyD')) move.add(yawRight);
     if (keys.has('KeyA')) move.addScaledVector(yawRight, -1);
+    if (keys.has('Space')) move.add(worldUp);
+    if (keys.has('ControlLeft') || keys.has('ControlRight')) move.addScaledVector(worldUp, -1);
 
     if (move.lengthSq() > 0) {
       move.normalize().multiplyScalar(speed * dt);
