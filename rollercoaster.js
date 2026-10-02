@@ -23,7 +23,8 @@
     minFov: 25,
     maxFov: 100,
     wheelSensitivity: 0.025,
-    pinchSensitivity: 0.12
+    pinchSensitivity: 0.12,
+    dollySpeed: 0.3
   };
   camera.position.set(18, 12, 22);
   camera.lookAt(7, 3, 0);
@@ -1484,16 +1485,22 @@
   }
 
   function zoomCamera(deltaY, sensitivity = zoom.wheelSensitivity) {
-    const nextFov = THREE.MathUtils.clamp(
-      camera.fov + deltaY * sensitivity,
-      zoom.minFov,
-      zoom.maxFov
-    );
+    const desiredFov = camera.fov + deltaY * sensitivity;
+    const nextFov = THREE.MathUtils.clamp(desiredFov, zoom.minFov, zoom.maxFov);
 
-    if (nextFov === camera.fov) return;
+    if (nextFov !== camera.fov) {
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
+    }
 
-    camera.fov = nextFov;
-    camera.updateProjectionMatrix();
+    // Once the FOV hits its limit, keep zooming out (or back in) by moving the
+    // camera itself instead of distorting the lens further.
+    const overflow = desiredFov - nextFov;
+    if (!isRideCameraActive() && overflow !== 0) {
+      const forward = camera.getWorldDirection(new THREE.Vector3());
+      camera.position.addScaledVector(forward, -overflow * zoom.dollySpeed);
+      camera.position.y = Math.max(1.2, camera.position.y);
+    }
   }
 
   function rotateRideLookByPixels(deltaX, deltaY) {
