@@ -16,9 +16,9 @@
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8eb6ff);
-  scene.fog = new THREE.Fog(0x8eb6ff, 150, 550);
+  scene.fog = new THREE.Fog(0x8eb6ff, 250, 1500);
 
-  const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 3000);
   const zoom = {
     minFov: 25,
     maxFov: 100,
@@ -67,7 +67,7 @@
 
     const tex = new THREE.CanvasTexture(c);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(80, 80);
+    tex.repeat.set(320, 320);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   })();
@@ -109,7 +109,7 @@
   sun.shadow.camera.bottom = -70;
   scene.add(sun);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), materials.ground);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), materials.ground);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -117,7 +117,22 @@
   const grid = new THREE.GridHelper(800, 160, 0xffffff, 0xffffff);
   grid.material.opacity = 0.18;
   grid.material.transparent = true;
+  // Fade the lines out with distance from the camera. Far away they bunch up
+  // into a white haze at the horizon, which looks unnatural.
+  grid.material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vGridWorld;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGridWorld = (modelMatrix * vec4(position, 1.0)).xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vGridWorld;')
+      .replace(
+        '#include <opaque_fragment>',
+        'gl_FragColor = vec4(outgoingLight, diffuseColor.a * (1.0 - smoothstep(40.0, 160.0, distance(vGridWorld, cameraPosition))));'
+      );
+  };
   scene.add(grid);
+
+  scene.add(window.CoasterMountains.mesh);
 
   const clouds = window.CoasterClouds;
   scene.add(clouds.group);
