@@ -97,14 +97,76 @@
       font-size: 26px;
     }
 
-    #playMenu #fullscreenToggle {
+    .play-menu-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #playMenu #fullscreenToggle,
+    #playMenu #addCoaster {
       width: 60px;
       height: 60px;
     }
 
-    #playMenu #fullscreenToggle svg {
+    #playMenu #fullscreenToggle svg,
+    #playMenu #addCoaster svg {
       width: 24px;
       height: 24px;
+    }
+
+    body.riding #addCoaster {
+      display: none;
+    }
+
+    #placeHint {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      max-width: calc(100vw - 32px);
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: rgba(15, 19, 30, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      pointer-events: none;
+      display: none;
+      z-index: 5;
+    }
+
+    body.placing-coaster #placeHint,
+    body.moving-coaster #placeHint {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #moveActions {
+      display: none;
+      gap: 8px;
+    }
+
+    body.moving-coaster #placeHint {
+      pointer-events: auto;
+    }
+
+    body.moving-coaster #moveActions {
+      display: flex;
+    }
+
+    body.moving-coaster #uiWrap,
+    body.moving-coaster #playMenu {
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    body.placing-coaster #game {
+      cursor: crosshair;
     }
 
     #rideMenu {
@@ -381,7 +443,8 @@
         top: 8px;
       }
 
-      #playMenu {
+      #playMenu,
+      .play-menu-column {
         gap: 6px;
       }
 
@@ -396,12 +459,14 @@
         height: 20px;
       }
 
-      #playMenu #fullscreenToggle {
+      #playMenu #fullscreenToggle,
+      #playMenu #addCoaster {
         width: 48px;
         height: 48px;
       }
 
-      #playMenu #fullscreenToggle svg {
+      #playMenu #fullscreenToggle svg,
+      #playMenu #addCoaster svg {
         width: 18px;
         height: 18px;
       }
@@ -517,11 +582,24 @@
     </div>
   </div>
 
+  <div id="placeHint">
+    <span id="placeHintText">Tap the ground to start a new roller coaster</span>
+    <span id="moveActions">
+      <button id="movePlace" class="good small-text-button">Place</button>
+      <button id="moveCancel" class="secondary small-text-button">Cancel</button>
+    </span>
+  </div>
+
   <div id="playMenu">
     <button id="testCoaster" class="good icon-button" aria-label="Start test" title="Start test">▶</button>
-    <button id="fullscreenToggle" class="secondary icon-button" aria-label="Toggle full screen" title="Toggle full screen">
-      <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-    </button>
+    <div class="play-menu-column">
+      <button id="fullscreenToggle" class="secondary icon-button" aria-label="Toggle full screen" title="Toggle full screen">
+        <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      </button>
+      <button id="addCoaster" class="secondary icon-button" aria-label="New roller coaster" title="New roller coaster">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      </button>
+    </div>
   </div>
 
   <input type="file" id="importFile" accept=".json" style="display:none">

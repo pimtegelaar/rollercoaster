@@ -137,13 +137,24 @@
   grid.material.transparent = true;
   scene.add(grid);
 
-  const startMarker = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.45, 0.45, 0.18, 32),
-    new THREE.MeshStandardMaterial({ color: 0x2d6cdf, emissive: 0x163772, emissiveIntensity: 0.25 })
+  const DEFAULT_TRACK_COLOR = '#dc2626';
+  const START_MARKER_COLOR_ACTIVE = 0x2d6cdf;
+  const START_MARKER_COLOR_INACTIVE = 0x7b8494;
+  const startMarkerGeometry = new THREE.CylinderGeometry(0.45, 0.45, 0.18, 32);
+  const hitMaterial = new THREE.MeshBasicMaterial({ visible: false });
+
+  // Translucent start marker that follows the pointer while choosing where a
+  // new coaster begins.
+  const ghostMarker = new THREE.Mesh(
+    startMarkerGeometry,
+    new THREE.MeshStandardMaterial({ color: START_MARKER_COLOR_ACTIVE, transparent: true, opacity: 0.6 })
   );
-  startMarker.position.set(0, 1.92, 0);
-  startMarker.castShadow = true;
-  scene.add(startMarker);
+  ghostMarker.visible = false;
+  scene.add(ghostMarker);
+
+  const ghostArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 2, 0), 3, 0xffe066, 0.7, 0.35);
+  ghostArrow.visible = false;
+  scene.add(ghostArrow);
 
   let trackGroup = new THREE.Group();
   scene.add(trackGroup);
@@ -182,19 +193,31 @@
     placeSection: document.getElementById('placeSection'),
     snapStart: document.getElementById('snapStart'),
     testCoaster: document.getElementById('testCoaster'),
+    addCoaster: document.getElementById('addCoaster'),
+    trackColorInput: document.getElementById('trackColorInput'),
     fullscreenToggle: document.getElementById('fullscreenToggle'),
     clear: document.getElementById('clear'),
     undo: document.getElementById('undo'),
     redo: document.getElementById('redo')
   };
 
-  const initialPos = new THREE.Vector3(0, 2, 0);
-  const initialDir = new THREE.Vector3(1, 0, 0);
-  const trackSegments = [];
-  const redoStack = [];
+  // The working variables below always describe the active coaster; they are
+  // swapped in and out of its record by activateCoaster().
+  let initialPos = new THREE.Vector3(0, 2, 0);
+  let initialDir = new THREE.Vector3(1, 0, 0);
+  let trackSegments = [];
+  let redoStack = [];
   let currentPos = initialPos.clone();
   let currentDir = initialDir.clone();
   let isClosedLoop = false;
+  const coasters = [];
+  let activeCoaster = null;
+  let placingCoaster = false;
+  // Set while an imported coaster is being positioned before it is committed.
+  let movingCoaster = null;
+  let moveBase = null;
+  let moveReturnTo = null;
+  let moveReplace = null;
   let sampledPoints = [];
   let sampledDistances = [];
   let sampledFrames = [];
@@ -239,10 +262,20 @@
     lastY: 0,
     lastCenterX: 0,
     lastCenterY: 0,
-    lastPinchDistance: 0
+    lastPinchDistance: 0,
+    tapCandidate: false,
+    tapX: 0,
+    tapY: 0,
+    tapTime: 0
   };
   let lastTime = performance.now();
+  let mouseDownPos = null;
 
+  activateCoaster(createCoaster(initialPos.clone(), initialDir.clone(), {
+    rail: materials.rail,
+    sleeper: materials.sleeper,
+    centerLine: materials.centerLine
+  }));
   bindUI();
   rebuildTrackMeshes();
   animate();
@@ -266,10 +299,10 @@
     });
     document.getElementById('exportTrack').addEventListener('click', exportTrack);
     document.getElementById('importTrack').addEventListener('click', () => {
-      if (confirm('Are you sure you want to import? This will replace your current progress with the imported roller coaster.')) {
-        document.getElementById('importFile').click();
-      }
+      document.getElementById('importFile').click();
     });
+    document.getElementById('movePlace').addEventListener('click', commitMove);
+    document.getElementById('moveCancel').addEventListener('click', cancelMove);
     document.getElementById('importFile').addEventListener('change', (e) => {
       if (e.target.files.length) importTrack(e.target.files[0]);
       e.target.value = '';
@@ -281,6 +314,7 @@
     });
     trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
     ui.testCoaster.addEventListener('click', toggleTest);
+    ui.addCoaster.addEventListener('click', () => setPlacingCoaster(!placingCoaster));
     ui.fullscreenToggle.addEventListener('click', toggleFullscreen);
     document.addEventListener('fullscreenchange', updateFullscreenButton);
     document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
@@ -308,6 +342,10 @@
     });
 
     window.addEventListener('keydown', (event) => {
+      if (event.code === 'Escape') {
+        if (placingCoaster) setPlacingCoaster(false);
+        if (movingCoaster) cancelMove();
+      }
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ControlLeft', 'ControlRight'].includes(event.code)) {
         keys.add(event.code);
         cancelCameraGlide();
@@ -320,6 +358,7 @@
     canvas.addEventListener('mousedown', (event) => {
       if (event.button !== 0) return;
       dragging = true;
+      mouseDownPos = { x: event.clientX, y: event.clientY };
       cancelCameraGlide();
       if (typeof canvas.setPointerCapture === 'function' && event.pointerId !== undefined) {
         canvas.setPointerCapture(event.pointerId);
@@ -333,8 +372,18 @@
       keys.clear();
     });
 
+    canvas.addEventListener('click', (event) => {
+      const down = mouseDownPos;
+      mouseDownPos = null;
+      if (!down || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 5) return;
+      handleCanvasTap(event.clientX, event.clientY, true);
+    });
+
     canvas.addEventListener('mousemove', (event) => {
-      if (!dragging) return;
+      if (!dragging) {
+        if (placingCoaster || movingCoaster) updateGhost(event.clientX, event.clientY);
+        return;
+      }
       if (isRideCameraActive()) rotateRideLookByPixels(event.movementX, event.movementY);
       else rotateFreeCameraByPixels(event.movementX, event.movementY);
     });
@@ -365,6 +414,249 @@
     updateSectionControls();
     updateTestButton();
     updateViewModeButton();
+  }
+
+  function createCoaster(position, direction, mats) {
+    const coaster = {
+      startPos: position,
+      startDir: direction,
+      segments: [],
+      redo: [],
+      currentPos: position.clone(),
+      currentDir: direction.clone(),
+      isClosedLoop: false,
+      color: DEFAULT_TRACK_COLOR,
+      minSpeed: Number(ui.speedSlider.value),
+      group: new THREE.Group(),
+      mats: mats || {
+        rail: materials.rail.clone(),
+        sleeper: materials.sleeper.clone(),
+        centerLine: materials.centerLine.clone()
+      },
+      marker: new THREE.Mesh(
+        startMarkerGeometry,
+        new THREE.MeshStandardMaterial({ color: START_MARKER_COLOR_ACTIVE, emissive: 0x163772, emissiveIntensity: 0.25 })
+      )
+    };
+    if (!mats) paintTrackMaterials(coaster.mats, DEFAULT_TRACK_COLOR);
+
+    coaster.group.userData.coaster = coaster;
+    scene.add(coaster.group);
+    coaster.marker.userData.coaster = coaster;
+    coaster.marker.position.set(position.x, position.y - 0.08, position.z);
+    coaster.marker.castShadow = true;
+    scene.add(coaster.marker);
+    coasters.push(coaster);
+    return coaster;
+  }
+
+  function activateCoaster(coaster) {
+    if (activeCoaster) {
+      activeCoaster.currentPos = currentPos;
+      activeCoaster.currentDir = currentDir;
+      activeCoaster.isClosedLoop = isClosedLoop;
+      activeCoaster.group = trackGroup;
+      activeCoaster.minSpeed = minCartSpeed;
+    }
+
+    activeCoaster = coaster;
+    trackSegments = coaster.segments;
+    redoStack = coaster.redo;
+    initialPos = coaster.startPos;
+    initialDir = coaster.startDir;
+    currentPos = coaster.currentPos.clone();
+    currentDir = coaster.currentDir.clone();
+    isClosedLoop = coaster.isClosedLoop;
+    trackGroup = coaster.group;
+
+    materials.rail = coaster.mats.rail;
+    materials.sleeper = coaster.mats.sleeper;
+    materials.centerLine = coaster.mats.centerLine;
+    paintTrackMaterials(previewMaterials, coaster.color);
+    ui.trackColorInput.value = coaster.color;
+
+    minCartSpeed = coaster.minSpeed;
+    ui.speedSlider.value = minCartSpeed;
+    ui.speedValue.textContent = minCartSpeed;
+
+    for (const other of coasters) {
+      other.marker.material.color.setHex(other === coaster ? START_MARKER_COLOR_ACTIVE : START_MARKER_COLOR_INACTIVE);
+    }
+
+    rebuildTrackMeshes();
+  }
+
+  function removeCoaster(coaster) {
+    coasters.splice(coasters.indexOf(coaster), 1);
+    scene.remove(coaster.group);
+    disposeGroup(coaster.group);
+    scene.remove(coaster.marker);
+    coaster.marker.material.dispose();
+    for (const mat of Object.values(coaster.mats)) mat.dispose();
+  }
+
+  function setMovingUI(moving) {
+    document.body.classList.toggle('moving-coaster', moving);
+    const touchOnly = window.matchMedia('(hover: none)').matches;
+    document.getElementById('placeHintText').textContent = moving
+      ? (touchOnly ? 'Drag or tap to position the coaster, then press Place' : 'Click to place the coaster')
+      : 'Tap the ground to start a new roller coaster';
+    ghostMarker.visible = false;
+    ghostArrow.visible = false;
+  }
+
+  function beginMove(coaster, returnTo) {
+    movingCoaster = coaster;
+    moveBase = coaster.startPos.clone();
+    moveReturnTo = returnTo;
+    // An untouched coaster would only be left behind as a stray start marker.
+    moveReplace = returnTo && returnTo.segments.length === 0 ? returnTo : null;
+    setMovingUI(true);
+  }
+
+  function moveCoasterTo(point) {
+    const coaster = movingCoaster;
+    coaster.group.position.set(point.x - moveBase.x, 0, point.z - moveBase.z);
+    coaster.marker.position.set(point.x, point.y - 0.08, point.z);
+  }
+
+  function translateCoaster(coaster, dx, dz) {
+    const vectors = new Set([coaster.startPos]);
+    for (const seg of coaster.segments) {
+      vectors.add(seg.start);
+      vectors.add(seg.end);
+      const curve = seg.curve;
+      for (const v of [curve.v0, curve.v1, curve.v2, curve.v3, ...(curve.points || [])]) {
+        if (v) vectors.add(v);
+      }
+    }
+    for (const v of vectors) {
+      v.x += dx;
+      v.z += dz;
+    }
+  }
+
+  function commitMove() {
+    const coaster = movingCoaster;
+    if (!coaster) return;
+    const dx = coaster.group.position.x;
+    const dz = coaster.group.position.z;
+    coaster.group.position.set(0, 0, 0);
+    translateCoaster(coaster, dx, dz);
+    currentPos.x += dx;
+    currentPos.z += dz;
+    coaster.marker.position.set(coaster.startPos.x, coaster.startPos.y - 0.08, coaster.startPos.z);
+
+    const replace = moveReplace;
+    movingCoaster = null;
+    moveReplace = null;
+    moveReturnTo = null;
+    setMovingUI(false);
+    if (replace && replace.segments.length === 0) removeCoaster(replace);
+    rebuildTrackMeshes();
+    setStatus('Placed the imported coaster.');
+  }
+
+  function cancelMove() {
+    const coaster = movingCoaster;
+    if (!coaster) return;
+    const back = coasters.includes(moveReturnTo) ? moveReturnTo : coasters.find((c) => c !== coaster);
+    movingCoaster = null;
+    moveReplace = null;
+    moveReturnTo = null;
+    setMovingUI(false);
+    removeCoaster(coaster);
+    activeCoaster = null;
+    activateCoaster(back);
+    setStatus('Import cancelled.');
+  }
+
+  function setPlacingCoaster(placing) {
+    if (placing && (isTesting || movingCoaster)) return;
+    placingCoaster = placing;
+    ghostMarker.visible = false;
+    ghostArrow.visible = false;
+    document.body.classList.toggle('placing-coaster', placing);
+    ui.addCoaster.classList.toggle('selected', placing);
+    if (placing) setStatus('Pick a spot on the ground to start a new roller coaster.');
+  }
+
+  function newCoasterDirection() {
+    const forward = camera.getWorldDirection(new THREE.Vector3());
+    if (Math.abs(forward.x) >= Math.abs(forward.z)) return new THREE.Vector3(Math.sign(forward.x) || 1, 0, 0);
+    return new THREE.Vector3(0, 0, Math.sign(forward.z));
+  }
+
+  function groundPointAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    );
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.intersectObject(ground, false)[0];
+    if (!hit) return null;
+    return new THREE.Vector3(Math.round(hit.point.x), initialPos.y, Math.round(hit.point.z));
+  }
+
+  function updateGhost(clientX, clientY) {
+    const point = groundPointAt(clientX, clientY);
+    if (movingCoaster) {
+      if (point) moveCoasterTo(point);
+      return;
+    }
+    ghostMarker.visible = !!point;
+    ghostArrow.visible = !!point;
+    if (!point) return;
+    ghostMarker.position.set(point.x, point.y - 0.08, point.z);
+    ghostArrow.position.copy(point);
+    ghostArrow.setDirection(newCoasterDirection());
+    ghostArrow.setLength(3, 0.7, 0.35);
+  }
+
+  function handleCanvasTap(clientX, clientY, fromMouse = false) {
+    if (isTesting) return;
+
+    if (movingCoaster) {
+      // A mouse click places the coaster where it is hovering. Touch has no
+      // hover, so a tap only repositions it and the Place button confirms.
+      const point = groundPointAt(clientX, clientY);
+      if (!point) return;
+      moveCoasterTo(point);
+      if (fromMouse) commitMove();
+      return;
+    }
+
+    if (placingCoaster) {
+      const point = groundPointAt(clientX, clientY);
+      if (!point) return;
+      const coaster = createCoaster(point, newCoasterDirection());
+      setPlacingCoaster(false);
+      activateCoaster(coaster);
+      setStatus(`Started coaster ${coasters.length}. Build from the blue start marker.`);
+      return;
+    }
+
+    const picked = pickCoaster(clientX, clientY);
+    if (picked && picked !== activeCoaster) {
+      activateCoaster(picked);
+      setStatus(`Selected coaster ${coasters.indexOf(picked) + 1}. Sections: ${trackSegments.length}.`);
+    }
+  }
+
+  function pickCoaster(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    raycaster.setFromCamera(new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    ), camera);
+
+    const targets = coasters.flatMap((coaster) => [coaster.group, coaster.marker]);
+    const hit = raycaster.intersectObjects(targets, true)[0];
+    for (let object = hit && hit.object; object; object = object.parent) {
+      if (object.userData.coaster) return object.userData.coaster;
+    }
+    return null;
   }
 
   function selectSectionType(type) {
@@ -723,6 +1015,17 @@
 
   function clearTrack() {
     if (isTesting) stopTest();
+
+    // With other coasters around, clearing removes this one entirely (including
+    // its start marker) and moves on to another coaster.
+    if (coasters.length > 1) {
+      removeCoaster(activeCoaster);
+      activeCoaster = null;
+      activateCoaster(coasters[coasters.length - 1]);
+      setStatus('Coaster removed.');
+      return;
+    }
+
     trackSegments.length = 0;
     redoStack.length = 0;
     isClosedLoop = false;
@@ -750,6 +1053,7 @@
       pitch: cameraPitch,
     };
 
+    setPlacingCoaster(false);
     isTesting = true;
     isFlying = false;
     cart.visible = true;
@@ -892,7 +1196,9 @@
     scene.remove(trackGroup);
     disposeGroup(trackGroup);
     trackGroup = new THREE.Group();
+    trackGroup.userData.coaster = activeCoaster;
     scene.add(trackGroup);
+    activeCoaster.group = trackGroup;
 
     sampledPoints = sampleTrackPoints();
     sampledFrames = buildTrackFrames(sampledPoints);
@@ -907,6 +1213,9 @@
       addTube(sampledPoints, SPINE_RADIUS, materials.centerLine);
       addStruts(sampledPoints, left, right);
       addSupports(sampledPoints, trackGroup, materials.support, true, sampledFrames);
+
+      // Wide invisible tube so thin rails are easy to click when picking a coaster.
+      addTube(sampledPoints, 1.1, hitMaterial, trackGroup, false).userData.hit = true;
     }
 
     updatePreviewSection();
@@ -921,11 +1230,11 @@
     if (ui.placeSection) ui.placeSection.disabled = isClosedLoop;
     if (ui.snapStart) ui.snapStart.disabled = trackSegments.length === 0 || isClosedLoop;
     if (ui.testCoaster) ui.testCoaster.disabled = !isTesting && (sampledPoints.length < 2 || totalTrackLength < 2);
-    if (ui.clear) ui.clear.disabled = trackSegments.length === 0;
+    if (ui.clear) ui.clear.disabled = trackSegments.length === 0 && coasters.length < 2;
     if (ui.undo) ui.undo.disabled = trackSegments.length === 0;
     if (ui.redo) ui.redo.disabled = redoStack.length === 0;
 
-    if (isTesting || isClosedLoop) {
+    if (isTesting || isClosedLoop || movingCoaster) {
       previewGroup.visible = false;
       return;
     }
@@ -1099,13 +1408,14 @@
   }
 
   function addTube(points, radius, material, group = trackGroup, shadows = true) {
-    if (points.length < 2) return;
+    if (points.length < 2) return null;
     const curve = new THREE.CatmullRomCurve3(points);
     const geometry = new THREE.TubeGeometry(curve, Math.max(24, points.length * 3), radius, 10, false);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = shadows;
     mesh.receiveShadow = shadows;
     group.add(mesh);
+    return mesh;
   }
 
   function addStruts(centerPoints, left, right, group = trackGroup, material = materials.sleeper, shadows = true) {
@@ -1535,6 +1845,12 @@
 
   // Rails use the picked color; struts and core tube are darker shades of it.
   function setTrackColor(hex) {
+    activeCoaster.color = hex;
+    paintTrackMaterials(activeCoaster.mats, hex);
+    paintTrackMaterials(previewMaterials, hex);
+  }
+
+  function paintTrackMaterials(mats, hex) {
     const hsl = {};
     new THREE.Color(hex).getHSL(hsl, THREE.SRGBColorSpace);
     const shades = {
@@ -1544,9 +1860,7 @@
     };
 
     for (const [name, factor] of Object.entries(shades)) {
-      const color = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l * factor, THREE.SRGBColorSpace);
-      materials[name].color.copy(color);
-      previewMaterials[name].color.copy(color);
+      mats[name].color.setHSL(hsl.h, hsl.s, hsl.l * factor, THREE.SRGBColorSpace);
     }
   }
 
@@ -1585,8 +1899,8 @@
     const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
 
-    const targets = [trackGroup, ground, cart].filter(Boolean);
-    const hits = raycaster.intersectObjects(targets, true);
+    const targets = [...coasters.map((coaster) => coaster.group), ground, cart];
+    const hits = raycaster.intersectObjects(targets, true).filter((hit) => !hit.object.userData.hit);
 
     const travelFraction = 0.5;
     let travelDistance;
@@ -1674,12 +1988,17 @@
       touchState.mode = 'rotate';
       touchState.lastX = touch.clientX;
       touchState.lastY = touch.clientY;
+      touchState.tapCandidate = true;
+      touchState.tapX = touch.clientX;
+      touchState.tapY = touch.clientY;
+      touchState.tapTime = performance.now();
       cancelCameraGlide();
 
       const now = performance.now();
       const dx = touch.clientX - doubleTap.lastX;
       const dy = touch.clientY - doubleTap.lastY;
       if (now - doubleTap.lastTime < doubleTap.maxDelay && Math.hypot(dx, dy) < doubleTap.maxDistance) {
+        touchState.tapCandidate = false;
         zoomToPoint(touch.clientX, touch.clientY);
         doubleTap.lastTime = 0;
       } else {
@@ -1706,12 +2025,18 @@
         return;
       }
 
+      if (Math.hypot(touch.clientX - touchState.tapX, touch.clientY - touchState.tapY) > 10) {
+        touchState.tapCandidate = false;
+      }
       const deltaX = touch.clientX - touchState.lastX;
       const deltaY = touch.clientY - touchState.lastY;
       touchState.lastX = touch.clientX;
       touchState.lastY = touch.clientY;
 
-      if (isRideCameraActive()) rotateRideLookByPixels(deltaX, deltaY);
+      if (movingCoaster) {
+        // Dragging a finger stands in for hovering: it carries the coaster along.
+        updateGhost(touch.clientX, touch.clientY);
+      } else if (isRideCameraActive()) rotateRideLookByPixels(deltaX, deltaY);
       else rotateFreeCameraByPixels(deltaX, deltaY);
       return;
     }
@@ -1735,6 +2060,12 @@
   function handleTouchEnd(event) {
     event.preventDefault();
 
+    if (event.touches.length === 0 && touchState.tapCandidate && event.type === 'touchend'
+        && event.changedTouches.length === 1 && performance.now() - touchState.tapTime < 500) {
+      touchState.tapCandidate = false;
+      handleCanvasTap(touchState.tapX, touchState.tapY);
+    }
+
     if (event.touches.length >= 2) {
       beginPinchPan(event.touches);
       return;
@@ -1753,6 +2084,7 @@
 
   function beginPinchPan(touches) {
     cancelCameraGlide();
+    touchState.tapCandidate = false;
     const center = touchCenter(touches);
     touchState.mode = 'pinchPan';
     touchState.lastCenterX = center.x;
@@ -1782,6 +2114,7 @@
     touchState.lastCenterX = 0;
     touchState.lastCenterY = 0;
     touchState.lastPinchDistance = 0;
+    touchState.tapCandidate = false;
   }
 
   function updateFreeCamera(dt) {
@@ -1814,8 +2147,8 @@
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
-    endpointMarker.visible = !isTesting && !isClosedLoop;
-    directionArrow.visible = !isTesting && !isClosedLoop;
+    endpointMarker.visible = !isTesting && !isClosedLoop && !movingCoaster;
+    directionArrow.visible = !isTesting && !isClosedLoop && !movingCoaster;
 
     if (isTesting) updateCart(dt);
     if (!isRideCameraActive()) {
@@ -1896,12 +2229,16 @@
         return;
       }
 
+      // The import becomes a new coaster that follows the pointer until the
+      // user places it.
       if (isTesting) stopTest();
-      trackSegments.length = 0;
-      redoStack.length = 0;
-      isClosedLoop = false;
-      currentPos = initialPos.clone();
-      currentDir = initialDir.clone();
+      setPlacingCoaster(false);
+      if (movingCoaster) cancelMove();
+      const previous = activeCoaster;
+      const center = groundPointAt(window.innerWidth / 2, window.innerHeight / 2) || initialPos.clone();
+      const imported = createCoaster(center, newCoasterDirection());
+      beginMove(imported, previous);
+      activateCoaster(imported);
 
       if (data.minSpeed != null) {
         const speed = Math.max(4, Math.min(28, Number(data.minSpeed)));
@@ -1957,7 +2294,7 @@
       }
 
       rebuildTrackMeshes();
-      setStatus(`Imported ${trackSegments.length} segment${trackSegments.length !== 1 ? 's' : ''}. Track length: ${totalTrackLength.toFixed(1)} units.`);
+      setStatus(`Imported ${trackSegments.length} segment${trackSegments.length !== 1 ? 's' : ''}. Move the coaster where you want it, then press Place.`);
     };
     reader.readAsText(file);
   }
