@@ -275,7 +275,7 @@
     ui.undo.addEventListener('click', undoSection);
     ui.redo.addEventListener('click', redoSection);
     document.getElementById('clear').addEventListener('click', () => {
-      if (confirm('Are you sure you want to start over? This will clear your current track.')) {
+      if (confirm('Are you sure you want to delete this roller coaster?')) {
         clearTrack();
       }
     });
@@ -863,7 +863,7 @@
     if (isTesting) stopTest();
 
     if (isClosedLoop) {
-      setStatus('This coaster is already closed. Press Undo to reopen the loop, or Clear track to start over.');
+      setStatus('This coaster is already closed. Press Undo to reopen the loop, or delete the coaster to start over.');
       return;
     }
 
