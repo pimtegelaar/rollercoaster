@@ -103,14 +103,12 @@
       gap: 8px;
     }
 
-    #playMenu #fullscreenToggle,
-    #playMenu #addCoaster {
+    #playMenu #fullscreenToggle {
       width: 60px;
       height: 60px;
     }
 
-    #playMenu #fullscreenToggle svg,
-    #playMenu #addCoaster svg {
+    #playMenu #fullscreenToggle svg {
       width: 24px;
       height: 24px;
     }
@@ -459,14 +457,12 @@
         height: 20px;
       }
 
-      #playMenu #fullscreenToggle,
-      #playMenu #addCoaster {
+      #playMenu #fullscreenToggle {
         width: 48px;
         height: 48px;
       }
 
-      #playMenu #fullscreenToggle svg,
-      #playMenu #addCoaster svg {
+      #playMenu #fullscreenToggle svg {
         width: 18px;
         height: 18px;
       }
@@ -529,23 +525,26 @@
       </button>
       <button id="placeSection" class="good wide small-text-button">Place</button>
       <button id="snapStart" class="secondary wide small-text-button">Snap loop</button>
+      <div class="wide button-pair-row">
+        <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
+        <button id="redo" class="secondary icon-button" aria-label="Redo" title="Redo">↷</button>
+      </div>
     </div>
 
     <div class="panel-section ride-controls">
       <div class="grid">
-        <div class="wide button-pair-row">
-          <button id="undo" class="secondary icon-button" aria-label="Undo" title="Undo">↶</button>
-          <button id="redo" class="secondary icon-button" aria-label="Redo" title="Redo">↷</button>
-        </div>
+        <button id="addCoaster" class="secondary icon-button" aria-label="New roller coaster" title="New roller coaster">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </button>
+        <button id="clear" class="warning icon-button" aria-label="Delete" title="Delete this roller coaster">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
         <div class="wide color-picker-wrap">
           <button id="trackColorButton" type="button" class="secondary icon-button" aria-label="Track color" title="Track color">
             <span class="color-wheel" aria-hidden="true"></span>
           </button>
           <input type="color" id="trackColorInput" value="#dc2626" tabindex="-1" aria-hidden="true">
         </div>
-        <button id="clear" class="warning icon-button wide" aria-label="Delete" title="Delete this roller coaster">
-          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-        </button>
         <div class="wide button-pair-row">
           <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">
             <svg viewBox="0 0 24 24"><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M8 3v5h7V3"/><path d="M8 21v-7h8v7"/></svg>
@@ -597,9 +596,6 @@
     <div class="play-menu-column">
       <button id="fullscreenToggle" class="secondary icon-button" aria-label="Toggle full screen" title="Toggle full screen">
         <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-      </button>
-      <button id="addCoaster" class="secondary icon-button" aria-label="New roller coaster" title="New roller coaster">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
       </button>
     </div>
   </div>
