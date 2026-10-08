@@ -177,6 +177,7 @@
     testCoaster: document.getElementById('testCoaster'),
     addCoaster: document.getElementById('addCoaster'),
     trackColorInput: document.getElementById('trackColorInput'),
+    coasterTitle: document.getElementById('coasterTitle'),
     fullscreenToggle: document.getElementById('fullscreenToggle'),
     clear: document.getElementById('clear'),
     undo: document.getElementById('undo'),
@@ -194,6 +195,7 @@
   let isClosedLoop = false;
   const coasters = [];
   let activeCoaster = null;
+  let coasterCounter = 0;
   let placingCoaster = false;
   // Set while an imported coaster is being positioned before it is committed.
   let movingCoaster = null;
@@ -293,6 +295,12 @@
     document.getElementById('trackColorButton').addEventListener('click', () => {
       if (typeof trackColorInput.showPicker === 'function') trackColorInput.showPicker();
       else trackColorInput.click();
+    });
+    document.getElementById('renameCoaster').addEventListener('click', () => {
+      const name = prompt('Name this roller coaster:', activeCoaster.name);
+      if (name === null || !name.trim()) return;
+      activeCoaster.name = name.trim().slice(0, 60);
+      ui.coasterTitle.textContent = activeCoaster.name;
     });
     trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
     ui.testCoaster.addEventListener('click', toggleTest);
@@ -407,6 +415,7 @@
       currentPos: position.clone(),
       currentDir: direction.clone(),
       isClosedLoop: false,
+      name: `Roller coaster ${++coasterCounter}`,
       color: DEFAULT_TRACK_COLOR,
       minSpeed: Number(ui.speedSlider.value),
       group: new THREE.Group(),
@@ -456,6 +465,7 @@
     materials.centerLine = coaster.mats.centerLine;
     paintTrackMaterials(previewMaterials, coaster.color);
     ui.trackColorInput.value = coaster.color;
+    ui.coasterTitle.textContent = coaster.name;
 
     minCartSpeed = coaster.minSpeed;
     ui.speedSlider.value = minCartSpeed;
@@ -1981,6 +1991,8 @@
   function exportTrack() {
     const data = {
       version: 1,
+      name: activeCoaster.name,
+      color: activeCoaster.color,
       minSpeed: Number(ui.speedSlider.value),
       segments: trackSegments.map(seg => {
         if (seg.isSnap) return { type: 'snap' };
@@ -1991,13 +2003,14 @@
     const json = JSON.stringify(data, null, 2);
     const count = trackSegments.length;
     const label = `Exported ${count} segment${count !== 1 ? 's' : ''} as JSON.`;
-    const file = new File([json], 'rollercoaster.json', { type: 'application/json' });
+    const fileName = (activeCoaster.name.replace(/[\\/:*?"<>|]/g, '').trim() || 'rollercoaster') + '.json';
+    const file = new File([json], fileName, { type: 'application/json' });
 
     const downloadFallback = () => {
       const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'rollercoaster.json';
+      a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
       setStatus(label);
@@ -2005,7 +2018,7 @@
 
     if (window.showSaveFilePicker) {
       window.showSaveFilePicker({
-        suggestedName: 'rollercoaster.json',
+        suggestedName: fileName,
         types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }]
       }).then(async (handle) => {
         const writable = await handle.createWritable();
@@ -2047,6 +2060,16 @@
       const imported = createCoaster(center, newCoasterDirection());
       beginMove(imported, previous);
       activateCoaster(imported);
+
+      if (typeof data.name === 'string' && data.name.trim()) {
+        imported.name = data.name.trim().slice(0, 60);
+        ui.coasterTitle.textContent = imported.name;
+      }
+
+      if (typeof data.color === 'string' && /^#[0-9a-f]{6}$/i.test(data.color)) {
+        setTrackColor(data.color);
+        ui.trackColorInput.value = data.color;
+      }
 
       if (data.minSpeed != null) {
         const speed = Math.max(4, Math.min(28, Number(data.minSpeed)));

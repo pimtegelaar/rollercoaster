@@ -117,6 +117,30 @@
       display: none;
     }
 
+    #coasterTitle {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: calc(100vw - 340px);
+      padding: 6px 14px;
+      border-radius: 12px;
+      background: rgba(15, 19, 30, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 16px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    #coasterTitle:empty,
+    body.riding #coasterTitle {
+      display: none;
+    }
+
     #placeHint {
       position: fixed;
       left: 50%;
@@ -499,6 +523,8 @@
     </div>
   </div>
 
+  <div id="coasterTitle"></div>
+
   <div id="uiWrap">
   <div id="ui">
     <div class="panel-section grid direction-grid builder-controls" aria-label="Choose next track section">
@@ -539,11 +565,16 @@
         <button id="clear" class="warning icon-button" aria-label="Delete" title="Delete this roller coaster">
           <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
         </button>
-        <div class="wide color-picker-wrap">
-          <button id="trackColorButton" type="button" class="secondary icon-button" aria-label="Track color" title="Track color">
-            <span class="color-wheel" aria-hidden="true"></span>
+        <div class="wide button-pair-row">
+          <div class="color-picker-wrap">
+            <button id="trackColorButton" type="button" class="secondary icon-button" aria-label="Track color" title="Track color">
+              <span class="color-wheel" aria-hidden="true"></span>
+            </button>
+            <input type="color" id="trackColorInput" value="#dc2626" tabindex="-1" aria-hidden="true">
+          </div>
+          <button id="renameCoaster" type="button" class="secondary icon-button" aria-label="Rename" title="Rename this roller coaster">
+            <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
           </button>
-          <input type="color" id="trackColorInput" value="#dc2626" tabindex="-1" aria-hidden="true">
         </div>
         <div class="wide button-pair-row">
           <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">
