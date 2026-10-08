@@ -119,6 +119,9 @@
   grid.material.transparent = true;
   scene.add(grid);
 
+  const clouds = window.CoasterClouds;
+  scene.add(clouds.group);
+
   const DEFAULT_TRACK_COLOR = '#dc2626';
   const START_MARKER_COLOR_ACTIVE = 0x2d6cdf;
   const START_MARKER_COLOR_INACTIVE = 0x7b8494;
@@ -1968,6 +1971,7 @@
     endpointMarker.visible = !isTesting && !isClosedLoop && !movingCoaster;
     directionArrow.visible = !isTesting && !isClosedLoop && !movingCoaster;
 
+    clouds.update(dt);
     if (isTesting) updateCart(dt);
     if (!isRideCameraActive()) {
       updateCameraGlide(now);
