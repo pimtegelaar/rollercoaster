@@ -234,6 +234,10 @@
   const flightPosition = new THREE.Vector3();
   const flightVelocity = new THREE.Vector3();
   const flightForward = new THREE.Vector3(0, 0, 1);
+  const explosions = window.CoasterExplosions.create(scene, GRAVITY);
+  let crashCameraHold = false;
+  let crashCameraDelay = 0;
+  const CRASH_CAMERA_EXTRA_HOLD = 1; // seconds to stay in ride view after the explosion ends
   let viewMode = 'third';
 
   const keys = new Set();
@@ -1056,6 +1060,8 @@
       return;
     }
 
+    if (crashCameraHold) stopTest();
+
     preRideCameraState = {
       position: camera.position.clone(),
       fov: camera.fov,
@@ -1079,6 +1085,7 @@
   }
 
   function stopTest() {
+    crashCameraHold = false;
     isTesting = false;
     isFlying = false;
     cart.visible = false;
@@ -1519,6 +1526,20 @@
     followCart(leadState.position, leadState.tangent, leadState.frame);
   }
 
+  function releaseCrashCamera() {
+    stopTest();
+    setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
+  }
+
+  function updateExplosions(dt) {
+    if (crashCameraHold && !explosions.isActive()) {
+      crashCameraDelay -= dt;
+      if (crashCameraDelay <= 0) releaseCrashCamera();
+    }
+
+    explosions.update(dt);
+  }
+
   function startFlight() {
     const endState = placeTrain(cartDistance);
     isFlying = true;
@@ -1548,20 +1569,11 @@
 
     if (flightPosition.y <= 0.4) {
       isFlying = false;
-      isTesting = false;
       cart.visible = false;
-      camera.up.set(0, 1, 0);
-      rideLookYaw = 0;
-      rideLookPitch = 0;
-
-      if (preRideCameraState) {
-        camera.position.copy(preRideCameraState.position);
-        camera.fov = preRideCameraState.fov;
-        camera.updateProjectionMatrix();
-        cameraYaw = preRideCameraState.yaw;
-        cameraPitch = preRideCameraState.pitch;
-        preRideCameraState = null;
-      }
+      explosions.spawn(flightPosition);
+      // Stay in ride mode (isTesting) with the camera as it is until the explosion is over.
+      crashCameraHold = true;
+      crashCameraDelay = CRASH_CAMERA_EXTRA_HOLD;
 
       updateTestButton();
       updatePreviewSection();
@@ -1987,8 +1999,9 @@
     directionArrow.visible = !isTesting && !isClosedLoop && !movingCoaster;
 
     clouds.update(dt);
-    if (isTesting) updateCart(dt);
-    if (!isRideCameraActive()) {
+    if (isTesting && !crashCameraHold) updateCart(dt);
+    updateExplosions(dt);
+    if (!isRideCameraActive() && !crashCameraHold) {
       updateCameraGlide(now);
       updateFreeCamera(dt);
     }
