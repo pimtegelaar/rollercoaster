@@ -307,8 +307,23 @@
       }
     });
     document.getElementById('exportTrack').addEventListener('click', exportTrack);
+    const importDialog = document.getElementById('importDialog');
     document.getElementById('importTrack').addEventListener('click', () => {
+      importDialog.classList.add('open');
+    });
+    document.getElementById('importDevice').addEventListener('click', () => {
+      importDialog.classList.remove('open');
       document.getElementById('importFile').click();
+    });
+    document.getElementById('importExample').addEventListener('click', () => {
+      importDialog.classList.remove('open');
+      importExample();
+    });
+    document.getElementById('importCancel').addEventListener('click', () => {
+      importDialog.classList.remove('open');
+    });
+    importDialog.addEventListener('click', (e) => {
+      if (e.target === importDialog) importDialog.classList.remove('open');
     });
     document.getElementById('movePlace').addEventListener('click', commitMove);
     document.getElementById('moveCancel').addEventListener('click', cancelMove);
@@ -2091,12 +2106,27 @@
     }
   }
 
+  function importExample() {
+    fetch('Tempest.json')
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+      })
+      .then(importTrackText)
+      .catch(() => setStatus('Import failed: could not load the example.'));
+  }
+
   function importTrack(file) {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = (e) => importTrackText(e.target.result);
+    reader.readAsText(file);
+  }
+
+  function importTrackText(text) {
+    {
       let data;
       try {
-        data = JSON.parse(e.target.result);
+        data = JSON.parse(text);
       } catch {
         setStatus('Import failed: file is not valid JSON.');
         return;
@@ -2182,8 +2212,7 @@
 
       rebuildTrackMeshes();
       setStatus(`Imported ${trackSegments.length} segment${trackSegments.length !== 1 ? 's' : ''}. Move the coaster where you want it, then press Place.`);
-    };
-    reader.readAsText(file);
+    }
   }
 
   function labelForType(type) {

@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "name": "Tempest",
+  "color": "#0080ff",
+  "minSpeed": 28,
+  "segments": [
+    {
+      "type": "up",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "straight",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "down",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "down",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "straight",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "up",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "loopRight",
+      "stuntSize": 30
+    },
+    {
+      "type": "loopRight",
+      "stuntSize": 16
+    },
+    {
+      "type": "right",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "right",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "right",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "up",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "down",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "down",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "up",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "loopRight",
+      "stuntSize": 16
+    },
+    {
+      "type": "loopRight",
+      "stuntSize": 16
+    },
+    {
+      "type": "straight",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "straight",
+      "length": 30,
+      "angle": 60
+    },
+    {
+      "type": "snap"
+    }
+  ]
+}
