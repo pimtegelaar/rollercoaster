@@ -278,19 +278,56 @@
       passenger.add(thigh);
     }
 
-    // Alternate riders: arms thrown up vs. gripping the harness.
-    const armsUp = index % 2 === 0;
-    for (const side of [-1, 1]) {
-      const shoulder = new THREE.Vector3(x, 0.98, z + side * 0.17);
-      const hand = armsUp
-        ? new THREE.Vector3(x + 0.05, 1.45, z + side * 0.28)
-        : new THREE.Vector3(x + 0.2, 1.0, z + side * 0.13);
-      const arm = cylinderBetween(shoulder, hand, 0.03, materials.skin, 8);
-      arm.castShadow = true;
-      passenger.add(arm);
-    }
+    // Arms hold the harness by default and are raised by updateRiders().
+    passenger.userData.arms = [-1, 1].map((side) => {
+      const geometry = new THREE.CylinderGeometry(0.03, 0.03, 1, 8);
+      const mesh = new THREE.Mesh(geometry, materials.skin);
+      mesh.castShadow = true;
+      passenger.add(mesh);
+
+      const arm = {
+        mesh,
+        shoulder: new THREE.Vector3(x, 0.98, z + side * 0.17),
+        handDown: new THREE.Vector3(x + 0.2, 1.0, z + side * 0.13),
+        handUp: new THREE.Vector3(x + 0.05, 1.45, z + side * 0.28)
+      };
+      poseArm(arm, 0);
+      return arm;
+    });
+    passenger.userData.armsUp = 0;
 
     return passenger;
+  }
+
+  const armDirection = new THREE.Vector3();
+  const armHand = new THREE.Vector3();
+
+  // amount: 0 = gripping the harness, 1 = hands in the air.
+  function poseArm(arm, amount) {
+    armHand.lerpVectors(arm.handDown, arm.handUp, amount);
+    armDirection.subVectors(armHand, arm.shoulder);
+    const length = armDirection.length();
+    arm.mesh.position.addVectors(arm.shoulder, armHand).multiplyScalar(0.5);
+    arm.mesh.scale.y = length;
+    arm.mesh.quaternion.setFromUnitVectors(worldUp, armDirection.divideScalar(length));
+  }
+
+  // Riders throw their hands up while descending or inverted in a loop.
+  // tangent/normal are the car's world forward and up directions.
+  function updateRiders(car, tangent, normal, dt, forceUp) {
+    if (normal.y < -0.2) car.userData.inverted = true;
+    else if (normal.y > 0.2) car.userData.inverted = false;
+
+    const raised = forceUp || car.userData.inverted || tangent.y < -0.15;
+    const target = raised ? 1 : 0;
+    const blend = 1 - Math.exp(-8 * dt);
+
+    car.traverse((object) => {
+      const arms = object.userData.arms;
+      if (!arms) return;
+      object.userData.armsUp += (target - object.userData.armsUp) * blend;
+      arms.forEach((arm) => poseArm(arm, object.userData.armsUp));
+    });
   }
 
   // Running wheels plus smaller side-friction wheels, like a tubular-track bogie.
@@ -329,5 +366,5 @@
     car.add(bogie);
   }
 
-  window.CoasterCart = { createTrain };
+  window.CoasterCart = { createTrain, updateRiders };
 })();

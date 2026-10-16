@@ -1522,7 +1522,7 @@
       }
     }
 
-    const leadState = placeTrain(cartDistance);
+    const leadState = placeTrain(cartDistance, dt);
     followCart(leadState.position, leadState.tangent, leadState.frame);
   }
 
@@ -1563,6 +1563,7 @@
       const offset = carObject.userData.trainOffset || 0;
       const carPosition = flightPosition.clone().addScaledVector(flightForward, -offset);
       placeCarOnTrack(carObject, carPosition, flightForward, frame);
+      window.CoasterCart.updateRiders(carObject, flightForward, frame.normal, dt, true);
     });
 
     followCart(flightPosition, flightForward, frame);
@@ -1581,13 +1582,14 @@
     }
   }
 
-  function placeTrain(distance) {
+  function placeTrain(distance, dt = 0) {
     const leadState = pointAtDistance(trackDistanceForCar(distance, 0));
 
     cart.children.forEach((carObject) => {
       const carDistance = trackDistanceForCar(distance, carObject.userData.trainOffset || 0);
       const state = pointAtDistance(carDistance);
       placeCarOnTrack(carObject, state.position, state.tangent, state.frame);
+      window.CoasterCart.updateRiders(carObject, state.tangent, state.frame.normal, dt);
     });
 
     return leadState;
