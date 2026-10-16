@@ -42,6 +42,9 @@
     maxPitch: THREE.MathUtils.degToRad(70)
   };
 
+  const ORBIT_DISTANCE = 16; // third-person camera distance behind the train's center
+  const ORBIT_HEIGHT = 5;
+
   const worldUp = new THREE.Vector3(0, 1, 0);
 
   const grassTexture = (() => {
@@ -1686,10 +1689,24 @@
       camera.up.lerp(normal, 0.42).normalize();
       camera.lookAt(position.clone().addScaledVector(lookDirection, 8).addScaledVector(normal, eyeHeight - 0.26));
     } else {
-      const camPos = position.clone().addScaledVector(direction, -9.25).addScaledVector(normal, 4.35);
+      // Orbit around the middle of the train: dragging swings the camera
+      // around it instead of turning the view in place.
+      const center = new THREE.Vector3();
+      cart.children.forEach((carObject) => center.add(carObject.position));
+      if (cart.children.length > 0) center.divideScalar(cart.children.length);
+      else center.copy(position);
+
+      const yawQuat = new THREE.Quaternion().setFromAxisAngle(normal, rideLookYaw);
+      const orbitSide = frame.side.clone().applyQuaternion(yawQuat);
+      const pitchQuat = new THREE.Quaternion().setFromAxisAngle(orbitSide, rideLookPitch);
+      const offset = direction.clone().multiplyScalar(-ORBIT_DISTANCE).addScaledVector(normal, ORBIT_HEIGHT)
+        .applyQuaternion(yawQuat).applyQuaternion(pitchQuat);
+
+      const camPos = center.clone().add(offset);
+      camPos.y = Math.max(1.2, camPos.y);
       camera.position.lerp(camPos, 0.14);
       camera.up.lerp(normal, 0.14).normalize();
-      camera.lookAt(camera.position.clone().addScaledVector(lookDirection, 13).addScaledVector(normal, 1.35));
+      camera.lookAt(center.addScaledVector(normal, 1));
     }
   }
 
@@ -1805,7 +1822,12 @@
   }
 
   function rotateRideLookByPixels(deltaX, deltaY) {
-    rideLookYaw = THREE.MathUtils.clamp(rideLookYaw - deltaX * 0.0022, -rideLook.maxYaw, rideLook.maxYaw);
+    if (viewMode === 'third') {
+      // Orbiting has no limit: wrap around so the camera can circle the train.
+      rideLookYaw = (rideLookYaw - deltaX * 0.0022) % (Math.PI * 2);
+    } else {
+      rideLookYaw = THREE.MathUtils.clamp(rideLookYaw - deltaX * 0.0022, -rideLook.maxYaw, rideLook.maxYaw);
+    }
     rideLookPitch = THREE.MathUtils.clamp(rideLookPitch - deltaY * 0.0022, -rideLook.maxPitch, rideLook.maxPitch);
   }
 
