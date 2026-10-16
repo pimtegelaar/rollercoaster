@@ -100,17 +100,17 @@
     return mesh;
   }
 
+  const TRAIN_CAR_COUNT = 4;
+
   function createTrain(carSpacing) {
     const train = new THREE.Group();
-    train.name = 'Two car coaster train';
+    train.name = 'Four car coaster train';
 
-    const frontCar = createCoasterCar(0);
-    frontCar.userData.trainOffset = 0;
-    train.add(frontCar);
-
-    const rearCar = createCoasterCar(1);
-    rearCar.userData.trainOffset = carSpacing;
-    train.add(rearCar);
+    for (let i = 0; i < TRAIN_CAR_COUNT; i += 1) {
+      const car = createCoasterCar(i);
+      car.userData.trainOffset = i * carSpacing;
+      train.add(car);
+    }
 
     return train;
   }
