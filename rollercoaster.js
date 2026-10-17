@@ -1129,6 +1129,7 @@
     isTesting = true;
     isFlying = false;
     cart.visible = true;
+    cart.children.forEach((carObject) => { carObject.visible = true; });
     cartDistance = 0;
     rideLookYaw = 0;
     rideLookPitch = 0;
@@ -1588,7 +1589,7 @@
   }
 
   function updateExplosions(dt) {
-    if (crashCameraHold && !explosions.isActive()) {
+    if (crashCameraHold && !isFlying && !explosions.isActive()) {
       crashCameraDelay -= dt;
       if (crashCameraDelay <= 0) releaseCrashCamera();
     }
@@ -1643,7 +1644,7 @@
     const positionOf = (i) => (flying[i] ? flying[i].position : carObjects[i].userData.trackState.position);
 
     flying.forEach((car) => {
-      if (!car) return;
+      if (!car || car.crashed) return;
       car.velocity.y -= GRAVITY * dt;
       car.position.addScaledVector(car.velocity, dt);
     });
@@ -1652,7 +1653,7 @@
       for (let i = 1; i < carObjects.length; i += 1) {
         const ahead = flying[i - 1];
         const behind = flying[i];
-        if (!ahead && !behind) continue;
+        if ((!ahead && !behind) || (ahead && ahead.crashed) || (behind && behind.crashed)) continue;
         const delta = positionOf(i - 1).clone().sub(positionOf(i));
         const length = delta.length();
         if (length < 1e-6) continue;
@@ -1671,13 +1672,13 @@
 
     if (dt > 0) {
       flying.forEach((car, i) => {
-        if (car) car.velocity.copy(car.position).sub(previous[i]).divideScalar(dt);
+        if (car && !car.crashed) car.velocity.copy(car.position).sub(previous[i]).divideScalar(dt);
       });
     }
 
     carObjects.forEach((carObject, i) => {
       const car = flying[i];
-      if (!car) return;
+      if (!car || car.crashed) return;
       const direction = i === 0
         ? car.velocity.clone()
         : positionOf(i - 1).clone().sub(car.position);
@@ -1688,21 +1689,29 @@
       window.CoasterCart.updateRiders(carObject, direction, frame.normal, dt, true);
     });
 
-    const lead = flying[0];
-    if (!lead) return;
-    flightPosition.copy(lead.position);
-    flightVelocity.copy(lead.velocity);
-    if (flightVelocity.lengthSq() > 0.01) flightForward.copy(flightVelocity).normalize();
-    followCart(flightPosition, flightForward, frameFromDirection(flightForward));
+    // Each car explodes on its own when it touches the ground.
+    flying.forEach((car, i) => {
+      if (!car || car.crashed || car.position.y > 0.4) return;
+      car.crashed = true;
+      carObjects[i].visible = false;
+      explosions.spawn(car.position);
+    });
 
-    if (flightPosition.y <= 0.4) {
-      isFlying = false;
-      cart.visible = false;
-      explosions.spawn(flightPosition);
-      // Stay in ride mode (isTesting) with the camera as it is until the explosion is over.
+    const lead = flying[0];
+    if (lead && !lead.crashed) {
+      flightPosition.copy(lead.position);
+      flightVelocity.copy(lead.velocity);
+      if (flightVelocity.lengthSq() > 0.01) flightForward.copy(flightVelocity).normalize();
+      followCart(flightPosition, flightForward, frameFromDirection(flightForward));
+    } else if (lead && !crashCameraHold) {
+      // Stay in ride mode (isTesting) with the camera as it is while the rest of the train crashes.
       crashCameraHold = true;
       crashCameraDelay = CRASH_CAMERA_EXTRA_HOLD;
+    }
 
+    if (flying.every((car) => car && car.crashed)) {
+      isFlying = false;
+      cart.visible = false;
       updateTestButton();
       updatePreviewSection();
       setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
@@ -2177,7 +2186,7 @@
     directionArrow.visible = !isTesting && !isClosedLoop && !movingCoaster;
 
     clouds.update(dt);
-    if (isTesting && !crashCameraHold) updateCart(dt);
+    if (isTesting && (!crashCameraHold || isFlying)) updateCart(dt);
     updateExplosions(dt);
     if (!isRideCameraActive() && !crashCameraHold) {
       updateCameraGlide(now);

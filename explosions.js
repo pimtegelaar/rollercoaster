@@ -8,24 +8,35 @@
   const PARTICLE_COLORS = [0xfff2a0, 0xffb02e, 0xff6a00, 0xd62800, 0x444444];
   const particleGeometry = new THREE.SphereGeometry(1, 8, 6);
   const shockwaveGeometry = new THREE.RingGeometry(0.8, 1, 32);
+  // Lights are created once up front: adding or removing a light changes the
+  // light count and forces every material in the scene to recompile (a hitch).
+  const FLASH_POOL_SIZE = 4;
 
   function createExplosions(scene, gravity) {
     const explosions = [];
+    const flashPool = [];
+    for (let i = 0; i < FLASH_POOL_SIZE; i++) {
+      const light = new THREE.PointLight(0xffaa33, 0, 25);
+      scene.add(light);
+      flashPool.push({ light, inUse: false });
+    }
 
     function spawn(position) {
       const group = new THREE.Group();
       group.position.copy(position);
       group.position.y = Math.max(position.y, 0.1);
 
-      const flash = new THREE.PointLight(0xffaa33, 6, 25);
-      group.add(flash);
+      const flash = flashPool.find((entry) => !entry.inUse) || null;
+      if (flash) {
+        flash.inUse = true;
+        flash.light.position.copy(group.position);
+      }
 
+      // Every particle of an explosion fades together, so they share one material per colour.
+      const materials = PARTICLE_COLORS.map((color) => new THREE.MeshBasicMaterial({ color, transparent: true }));
       const particles = [];
       for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const material = new THREE.MeshBasicMaterial({
-          color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
-          transparent: true
-        });
+        const material = materials[Math.floor(Math.random() * materials.length)];
         const mesh = new THREE.Mesh(particleGeometry, material);
         const size = 0.2 + Math.random() * 0.4;
         mesh.scale.setScalar(size);
@@ -48,7 +59,7 @@
       group.add(ring);
 
       scene.add(group);
-      explosions.push({ group, flash, particles, ring, age: 0, duration: DURATION });
+      explosions.push({ group, flash, materials, particles, ring, age: 0, duration: DURATION });
     }
 
     function update(dt) {
@@ -58,20 +69,24 @@
         const t = explosion.age / explosion.duration;
 
         if (t >= 1) {
-          explosion.particles.forEach(({ mesh }) => mesh.material.dispose());
+          explosion.materials.forEach((material) => material.dispose());
+          if (explosion.flash) {
+            explosion.flash.light.intensity = 0;
+            explosion.flash.inUse = false;
+          }
           explosion.ring.material.dispose();
           scene.remove(explosion.group);
           explosions.splice(i, 1);
           continue;
         }
 
-        explosion.flash.intensity = 6 * Math.pow(1 - t, 3);
+        if (explosion.flash) explosion.flash.light.intensity = 6 * Math.pow(1 - t, 3);
+        explosion.materials.forEach((material) => { material.opacity = 1 - t * t; });
 
         explosion.particles.forEach(({ mesh, velocity, size }) => {
           velocity.y -= gravity * 0.4 * dt;
           mesh.position.addScaledVector(velocity, dt);
           mesh.scale.setScalar(size * (1 + t * 1.5) * (1 - t * 0.6));
-          mesh.material.opacity = 1 - t * t;
         });
 
         explosion.ring.scale.setScalar(0.5 + t * 8);
