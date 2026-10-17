@@ -22,9 +22,10 @@
     [0.92, -0.04], [0.99, 0.08], [1.04, 0.12], [1.12, 0.09], [1.3, 0.05], [1.6, 0.02], [2, 0]
   ];
   const CRATER_EDGE = 2;      // unit radius where the apron meets the ground
-  const CRATER_HOLE = 1.97;   // ground hole radius; the apron overlaps it slightly
+  const CRATER_HOLE = 1.4;    // ground hole radius, inside the opaque part of the apron
+  const CRATER_FADE = 1.5;    // unit radius where the apron starts fading to transparent
   const CRATER_COLORS = [
-    [0, 0x4a4036], [0.5, 0x8d7d66], [0.9, 0xb9a98c], [1.05, 0xcbbb9e], [1.4, 0xb09c7e], [CRATER_EDGE, 0x6f7a46]
+    [0, 0x3b2a1c], [0.5, 0x5c4129], [0.9, 0x6e4e32], [1.05, 0x7a583a], [1.3, 0x6e4e32], [1.6, 0x1c140e], [CRATER_EDGE, 0x1c140e]
   ].map(([r, hex]) => [r, new THREE.Color(hex)]);
 
   function craterColor(r, target) {
@@ -44,7 +45,7 @@
     const points = curve.getPoints(72).map((p) => new THREE.Vector2(Math.max(p.x, 0), p.y));
     const geometry = new THREE.LatheGeometry(points, 64);
     const position = geometry.attributes.position;
-    const colors = new Float32Array(position.count * 3);
+    const colors = new Float32Array(position.count * 4);
     const phase = Array.from({ length: 4 }, () => Math.random() * Math.PI * 2);
     const color = new THREE.Color();
     for (let i = 0; i < position.count; i++) {
@@ -59,46 +60,20 @@
       const crest = y > 0 ? 1 + 0.2 * Math.sin(2 * angle + phase[3]) * weight : 1;
       // Hummocks of thrown-out earth on the apron, growing in and fading out across it.
       const apron = Math.sin(Math.PI * THREE.MathUtils.clamp((r - 1.05) / (CRATER_EDGE - 1.05), 0, 1));
-      const lumps = apron * 0.07 * (Math.sin(5 * x + phase[0]) * Math.sin(5 * z + phase[1]) + 0.5 * Math.sin(11 * x + 3 * z + phase[2]));
+      // Never below the ground, or the grass would show through the apron.
+      const lumps = apron * 0.03 * Math.max(0, Math.sin(5 * x + phase[0]) * Math.sin(5 * z + phase[1]) + 0.5 * Math.sin(11 * x + 3 * z + phase[2]));
       position.setXYZ(i, x * wobble, y * crest + lumps, z * wobble);
       craterColor(r, color);
-      colors.set([color.r, color.g, color.b], i * 3);
+      // The apron fades out so the ground's own grass pattern shows through gradually.
+      const alpha = 1 - THREE.MathUtils.smoothstep(r, CRATER_FADE, CRATER_EDGE);
+      colors.set([color.r, color.g, color.b, alpha], i * 4);
     }
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));
     geometry.computeVertexNormals();
     return geometry;
   }
 
-  // Soft scorch halo around the hole; transparent inside so it never covers the pit.
-  function createScorchTexture() {
-    const size = 128;
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    const c = size / 2;
-    const gradient = ctx.createRadialGradient(c, c, 0, c, c, c);
-    gradient.addColorStop(0, 'rgba(20,14,9,0)');
-    gradient.addColorStop(0.62, 'rgba(20,14,9,0)');
-    gradient.addColorStop(0.66, 'rgba(20,14,9,0.8)');
-    gradient.addColorStop(1, 'rgba(20,14,9,0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-  }
-
-  const scorchGeometry = new THREE.CircleGeometry(1, 32);
-  const bowlMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide, flatShading: false });
-  const scorchMaterial = new THREE.MeshStandardMaterial({
-    map: createScorchTexture(),
-    transparent: true,
-    roughness: 1,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
-  });
+  const bowlMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, roughness: 1, side: THREE.DoubleSide, flatShading: false });
 
   function createExplosions(scene, gravity) {
     const explosions = [];
@@ -165,13 +140,6 @@ uniform vec3 uCraters[${MAX_CRATERS}];`)
       bowl.scale.set(radius, depth, radius);
       bowl.receiveShadow = true;
       group.add(bowl);
-
-      const scorch = new THREE.Mesh(scorchGeometry, scorchMaterial);
-      scorch.rotation.x = -Math.PI / 2;
-      scorch.position.y = 0.02;
-      scorch.scale.setScalar(radius * CRATER_HOLE / 0.64);
-      scorch.receiveShadow = true;
-      group.add(scorch);
 
       scene.add(group);
       craterUniform.value[slot].set(position.x, position.z, radius * CRATER_HOLE * 0.98);
