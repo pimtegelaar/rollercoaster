@@ -12,16 +12,179 @@
   // light count and forces every material in the scene to recompile (a hitch).
   const FLASH_POOL_SIZE = 4;
 
+  // Craters are permanent, real dents: the ground shader discards the fragments inside each
+  // crater's hole (see patchGround) and a lathe-turned bowl with a raised rim fills it.
+  const MAX_CRATERS = 48;
+  // Profile of a blast crater (unit radius = lip crest, unit height = depth): a deep, smooth,
+  // funnel-shaped bowl with a small rounded bottom, a narrow lip and a wide, lumpy ejecta apron.
+  const CRATER_PROFILE = [
+    [0, -1], [0.2, -0.97], [0.35, -0.86], [0.5, -0.66], [0.65, -0.43], [0.8, -0.2],
+    [0.92, -0.04], [0.99, 0.08], [1.04, 0.12], [1.12, 0.09], [1.3, 0.05], [1.6, 0.02], [2, 0]
+  ];
+  const CRATER_EDGE = 2;      // unit radius where the apron meets the ground
+  const CRATER_HOLE = 1.97;   // ground hole radius; the apron overlaps it slightly
+  const CRATER_COLORS = [
+    [0, 0x4a4036], [0.5, 0x8d7d66], [0.9, 0xb9a98c], [1.05, 0xcbbb9e], [1.4, 0xb09c7e], [CRATER_EDGE, 0x6f7a46]
+  ].map(([r, hex]) => [r, new THREE.Color(hex)]);
+
+  function craterColor(r, target) {
+    for (let i = 1; i < CRATER_COLORS.length; i++) {
+      if (r <= CRATER_COLORS[i][0] || i === CRATER_COLORS.length - 1) {
+        const [r0, c0] = CRATER_COLORS[i - 1];
+        const [r1, c1] = CRATER_COLORS[i];
+        return target.copy(c0).lerp(c1, THREE.MathUtils.clamp((r - r0) / (r1 - r0), 0, 1));
+      }
+    }
+    return target;
+  }
+
+  // Each crater gets its own geometry so its rim is irregular (lumpy outline, uneven crest).
+  function createBowlGeometry() {
+    const curve = new THREE.SplineCurve(CRATER_PROFILE.map(([r, y]) => new THREE.Vector2(r, y)));
+    const points = curve.getPoints(72).map((p) => new THREE.Vector2(Math.max(p.x, 0), p.y));
+    const geometry = new THREE.LatheGeometry(points, 64);
+    const position = geometry.attributes.position;
+    const colors = new Float32Array(position.count * 3);
+    const phase = Array.from({ length: 4 }, () => Math.random() * Math.PI * 2);
+    const color = new THREE.Color();
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i);
+      const z = position.getZ(i);
+      const y = position.getY(i);
+      const r = Math.hypot(x, z);
+      const angle = Math.atan2(z, x);
+      // Wobble fades out towards the apron's edge so it still meets the circular hole.
+      const weight = THREE.MathUtils.clamp((CRATER_EDGE - r) / (CRATER_EDGE - 0.9), 0, 1);
+      const wobble = 1 + weight * (0.04 * Math.sin(3 * angle + phase[0]) + 0.03 * Math.sin(5 * angle + phase[1]) + 0.02 * Math.sin(9 * angle + phase[2]));
+      const crest = y > 0 ? 1 + 0.2 * Math.sin(2 * angle + phase[3]) * weight : 1;
+      // Hummocks of thrown-out earth on the apron, growing in and fading out across it.
+      const apron = Math.sin(Math.PI * THREE.MathUtils.clamp((r - 1.05) / (CRATER_EDGE - 1.05), 0, 1));
+      const lumps = apron * 0.07 * (Math.sin(5 * x + phase[0]) * Math.sin(5 * z + phase[1]) + 0.5 * Math.sin(11 * x + 3 * z + phase[2]));
+      position.setXYZ(i, x * wobble, y * crest + lumps, z * wobble);
+      craterColor(r, color);
+      colors.set([color.r, color.g, color.b], i * 3);
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+
+  // Soft scorch halo around the hole; transparent inside so it never covers the pit.
+  function createScorchTexture() {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const c = size / 2;
+    const gradient = ctx.createRadialGradient(c, c, 0, c, c, c);
+    gradient.addColorStop(0, 'rgba(20,14,9,0)');
+    gradient.addColorStop(0.62, 'rgba(20,14,9,0)');
+    gradient.addColorStop(0.66, 'rgba(20,14,9,0.8)');
+    gradient.addColorStop(1, 'rgba(20,14,9,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
+  const scorchGeometry = new THREE.CircleGeometry(1, 32);
+  const bowlMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide, flatShading: false });
+  const scorchMaterial = new THREE.MeshStandardMaterial({
+    map: createScorchTexture(),
+    transparent: true,
+    roughness: 1,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2
+  });
+
   function createExplosions(scene, gravity) {
     const explosions = [];
+    const craters = [];
     const flashPool = [];
+    // x, z, hole radius per crater; radius 0 means unused.
+    const craterUniform = { value: Array.from({ length: MAX_CRATERS }, () => new THREE.Vector3()) };
     for (let i = 0; i < FLASH_POOL_SIZE; i++) {
       const light = new THREE.PointLight(0xffaa33, 0, 25);
       scene.add(light);
       flashPool.push({ light, inUse: false });
     }
 
+    // Cuts a hole in the ground material wherever a crater is.
+    function patchGround(material) {
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.uCraters = craterUniform;
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec2 vCraterXZ;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCraterXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', `#include <common>
+varying vec2 vCraterXZ;
+uniform vec3 uCraters[${MAX_CRATERS}];`)
+          .replace('void main() {', `void main() {
+  for (int i = 0; i < ${MAX_CRATERS}; i++) {
+    if (distance(vCraterXZ, uCraters[i].xy) < uCraters[i].z) discard;
+  }`);
+      };
+      material.needsUpdate = true;
+    }
+
+    function removeCrater(crater) {
+      scene.remove(crater.group);
+      crater.geometry.dispose();
+      craterUniform.value[crater.slot].set(0, 0, 0);
+    }
+
+    function addCrater(position) {
+      const radius = 1.3 + Math.random() * 0.5;
+      // Carts of one train crash a few units apart. Overlapping craters would lay one's flat
+      // apron across the other's pit, so a crash inside an existing crater's reach adds nothing.
+      const overlaps = craters.some((other) => {
+        const distance = Math.hypot(other.x - position.x, other.z - position.z);
+        return distance < CRATER_EDGE * other.radius + radius || distance < CRATER_EDGE * radius + other.radius;
+      });
+      if (overlaps) return;
+
+      // Past the limit, the oldest crater makes room.
+      let slot = craters.length;
+      if (craters.length >= MAX_CRATERS) {
+        const oldest = craters.shift();
+        removeCrater(oldest);
+        slot = oldest.slot;
+      }
+
+      const depth = radius * (1.15 + Math.random() * 0.2);
+      const group = new THREE.Group();
+      group.position.set(position.x, 0.005, position.z);
+      group.rotation.y = Math.random() * Math.PI * 2;
+
+      const geometry = createBowlGeometry();
+      const bowl = new THREE.Mesh(geometry, bowlMaterial);
+      bowl.scale.set(radius, depth, radius);
+      bowl.receiveShadow = true;
+      group.add(bowl);
+
+      const scorch = new THREE.Mesh(scorchGeometry, scorchMaterial);
+      scorch.rotation.x = -Math.PI / 2;
+      scorch.position.y = 0.02;
+      scorch.scale.setScalar(radius * CRATER_HOLE / 0.64);
+      scorch.receiveShadow = true;
+      group.add(scorch);
+
+      scene.add(group);
+      craterUniform.value[slot].set(position.x, position.z, radius * CRATER_HOLE * 0.98);
+      craters.push({ group, slot, geometry, radius, x: position.x, z: position.z });
+    }
+
+    function clearCraters() {
+      craters.forEach(removeCrater);
+      craters.length = 0;
+    }
+
     function spawn(position) {
+      addCrater(position);
       const group = new THREE.Group();
       group.position.copy(position);
       group.position.y = Math.max(position.y, 0.1);
@@ -94,7 +257,7 @@
       }
     }
 
-    return { spawn, update, isActive: () => explosions.length > 0 };
+    return { spawn, update, clearCraters, patchGround, isActive: () => explosions.length > 0 };
   }
 
   window.CoasterExplosions = { create: createExplosions };

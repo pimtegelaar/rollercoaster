@@ -247,6 +247,7 @@
   const flightVelocity = new THREE.Vector3();
   const flightForward = new THREE.Vector3(0, 0, 1);
   const explosions = window.CoasterExplosions.create(scene, GRAVITY);
+  explosions.patchGround(materials.ground);
   let crashCameraHold = false;
   let crashCameraDelay = 0;
   const CRASH_CAMERA_EXTRA_HOLD = 1; // seconds to stay in ride view after the explosion ends
