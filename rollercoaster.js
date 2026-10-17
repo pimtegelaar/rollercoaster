@@ -172,7 +172,10 @@
   let directionArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 2, 0), 3, 0xffe066, 0.7, 0.35);
   scene.add(directionArrow);
 
-  const cart = window.CoasterCart.createTrain(TRAIN_CAR_SPACING);
+  const MIN_CARTS = 1;
+  const MAX_CARTS = 50;
+  const settings = loadSettings();
+  const cart = window.CoasterCart.createTrain(TRAIN_CAR_SPACING, settings.cartCount);
   cart.visible = false;
   scene.add(cart);
 
@@ -200,6 +203,12 @@
     trackColorInput: document.getElementById('trackColorInput'),
     coasterTitle: document.getElementById('coasterTitle'),
     fullscreenToggle: document.getElementById('fullscreenToggle'),
+    settingsButton: document.getElementById('settingsButton'),
+    settingsDialog: document.getElementById('settingsDialog'),
+    settingsClose: document.getElementById('settingsClose'),
+    cartCountDown: document.getElementById('cartCountDown'),
+    cartCountUp: document.getElementById('cartCountUp'),
+    cartCountValue: document.getElementById('cartCountValue'),
     clear: document.getElementById('clear'),
     undo: document.getElementById('undo'),
     redo: document.getElementById('redo')
@@ -366,6 +375,14 @@
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.addCoaster.addEventListener('click', () => setPlacingCoaster(!placingCoaster));
     ui.fullscreenToggle.addEventListener('click', toggleFullscreen);
+    ui.settingsButton.addEventListener('click', () => ui.settingsDialog.classList.add('open'));
+    ui.settingsClose.addEventListener('click', () => ui.settingsDialog.classList.remove('open'));
+    ui.settingsDialog.addEventListener('click', (e) => {
+      if (e.target === ui.settingsDialog) ui.settingsDialog.classList.remove('open');
+    });
+    ui.cartCountDown.addEventListener('click', () => setCartCount(settings.cartCount - 1));
+    ui.cartCountUp.addEventListener('click', () => setCartCount(settings.cartCount + 1));
+    updateSettingsUi();
     document.addEventListener('fullscreenchange', updateFullscreenButton);
     document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
     document.addEventListener('mozfullscreenchange', updateFullscreenButton);
@@ -1120,7 +1137,7 @@
     updatePreviewSection();
     updateCart(0);
     const viewLabel = viewMode === 'free' ? 'free camera' : `${viewMode} person`;
-    setStatus(`Testing the two-car train in ${viewLabel}${isClosedLoop ? ' on a closed loop' : ''}. ${viewMode === 'free' ? 'WASD and drag to move the camera.' : 'Drag to look around.'} Press the stop button to return to free camera.`);
+    setStatus(`Testing the train in ${viewLabel}${isClosedLoop ? ' on a closed loop' : ''}. ${viewMode === 'free' ? 'WASD and drag to move the camera.' : 'Drag to look around.'} Press the stop button to return to free camera.`);
   }
 
   function stopTest() {
@@ -1585,27 +1602,98 @@
     flightPosition.copy(endState.position);
     flightForward.copy(endState.tangent).normalize();
     flightVelocity.copy(flightForward).multiplyScalar(cartSpeed);
+
+    // Cars stay on the rails (no flight state) until each one passes the end of the track.
+    cart.children.forEach((carObject) => { carObject.userData.flight = null; });
     setStatus('The train flew off the end of the track!');
   }
 
   function updateFlight(dt) {
-    flightVelocity.y -= GRAVITY * dt;
-    flightPosition.addScaledVector(flightVelocity, dt);
+    const carObjects = cart.children;
 
-    if (flightVelocity.lengthSq() > 0.01) {
-      flightForward.copy(flightVelocity).normalize();
+    // Cars still on the track keep rolling along it.
+    const onTrack = carObjects.filter((carObject) => !carObject.userData.flight);
+    if (onTrack.length > 0) {
+      const rearState = pointAtDistance(trackDistanceForCar(cartDistance, onTrack[onTrack.length - 1].userData.trainOffset || 0));
+      cartSpeed = Math.max(minCartSpeed, cartSpeed - GRAVITY * rearState.tangent.y * dt);
+      cartDistance += cartSpeed * dt;
     }
 
-    const frame = frameFromDirection(flightForward);
-
-    cart.children.forEach((carObject) => {
+    carObjects.forEach((carObject) => {
+      if (carObject.userData.flight) return;
       const offset = carObject.userData.trainOffset || 0;
-      const carPosition = flightPosition.clone().addScaledVector(flightForward, -offset);
-      placeCarOnTrack(carObject, carPosition, flightForward, frame);
-      window.CoasterCart.updateRiders(carObject, flightForward, frame.normal, dt, true);
+      if (cartDistance - offset >= totalTrackLength) {
+        // This car reaches the end of the track and leaves it.
+        const state = pointAtDistance(totalTrackLength);
+        carObject.userData.flight = {
+          position: state.position.clone(),
+          velocity: state.tangent.clone().normalize().multiplyScalar(cartSpeed)
+        };
+      } else {
+        const state = pointAtDistance(trackDistanceForCar(cartDistance, offset));
+        placeCarOnTrack(carObject, state.position, state.tangent, state.frame);
+        window.CoasterCart.updateRiders(carObject, state.tangent, state.frame.normal, dt);
+        carObject.userData.trackState = state;
+      }
     });
 
-    followCart(flightPosition, flightForward, frame);
+    // Flying cars: ballistic, coupled to their neighbours but otherwise free to swing around.
+    const flying = carObjects.map((carObject) => carObject.userData.flight);
+    const previous = flying.map((car) => (car ? car.position.clone() : null));
+    const positionOf = (i) => (flying[i] ? flying[i].position : carObjects[i].userData.trackState.position);
+
+    flying.forEach((car) => {
+      if (!car) return;
+      car.velocity.y -= GRAVITY * dt;
+      car.position.addScaledVector(car.velocity, dt);
+    });
+
+    for (let iteration = 0; iteration < 8; iteration += 1) {
+      for (let i = 1; i < carObjects.length; i += 1) {
+        const ahead = flying[i - 1];
+        const behind = flying[i];
+        if (!ahead && !behind) continue;
+        const delta = positionOf(i - 1).clone().sub(positionOf(i));
+        const length = delta.length();
+        if (length < 1e-6) continue;
+        delta.multiplyScalar((length - TRAIN_CAR_SPACING) / length);
+        // A car still on the rails is fixed; only the flying one moves.
+        if (ahead && behind) {
+          ahead.position.addScaledVector(delta, -0.5);
+          behind.position.addScaledVector(delta, 0.5);
+        } else if (ahead) {
+          ahead.position.sub(delta);
+        } else {
+          behind.position.add(delta);
+        }
+      }
+    }
+
+    if (dt > 0) {
+      flying.forEach((car, i) => {
+        if (car) car.velocity.copy(car.position).sub(previous[i]).divideScalar(dt);
+      });
+    }
+
+    carObjects.forEach((carObject, i) => {
+      const car = flying[i];
+      if (!car) return;
+      const direction = i === 0
+        ? car.velocity.clone()
+        : positionOf(i - 1).clone().sub(car.position);
+      if (direction.lengthSq() < 0.0001) direction.copy(flightForward);
+      direction.normalize();
+      const frame = frameFromDirection(direction);
+      placeCarOnTrack(carObject, car.position, direction, frame);
+      window.CoasterCart.updateRiders(carObject, direction, frame.normal, dt, true);
+    });
+
+    const lead = flying[0];
+    if (!lead) return;
+    flightPosition.copy(lead.position);
+    flightVelocity.copy(lead.velocity);
+    if (flightVelocity.lengthSq() > 0.01) flightForward.copy(flightVelocity).normalize();
+    followCart(flightPosition, flightForward, frameFromDirection(flightForward));
 
     if (flightPosition.y <= 0.4) {
       isFlying = false;
@@ -1619,6 +1707,36 @@
       updatePreviewSection();
       setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
     }
+  }
+
+  function loadSettings() {
+    const defaults = { cartCount: window.CoasterCart.DEFAULT_CAR_COUNT };
+    try {
+      const saved = JSON.parse(localStorage.getItem('rollercoaster.settings'));
+      const count = Math.round(Number(saved && saved.cartCount));
+      if (count >= MIN_CARTS && count <= MAX_CARTS) defaults.cartCount = count;
+    } catch (err) { /* storage unavailable or corrupt: use defaults */ }
+    return defaults;
+  }
+
+  function saveSettings() {
+    try {
+      localStorage.setItem('rollercoaster.settings', JSON.stringify(settings));
+    } catch (err) { /* ignore */ }
+  }
+
+  function updateSettingsUi() {
+    ui.cartCountValue.textContent = settings.cartCount;
+    ui.cartCountDown.disabled = settings.cartCount <= MIN_CARTS;
+    ui.cartCountUp.disabled = settings.cartCount >= MAX_CARTS;
+  }
+
+  function setCartCount(count) {
+    settings.cartCount = Math.min(MAX_CARTS, Math.max(MIN_CARTS, count));
+    window.CoasterCart.setCarCount(cart, settings.cartCount, TRAIN_CAR_SPACING);
+    if (isTesting && !isFlying) placeTrain(cartDistance);
+    saveSettings();
+    updateSettingsUi();
   }
 
   function placeTrain(distance, dt = 0) {

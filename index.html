@@ -146,7 +146,35 @@
       display: none;
     }
 
-    #importDialog {
+    #playMenu #settingsButton {
+      width: 60px;
+      height: 60px;
+    }
+
+    #playMenu #settingsButton svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      margin: 0;
+    }
+
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stepper button { width: 34px; }
+    .stepper span { min-width: 20px; text-align: center; font-weight: 800; font-size: 15px; color: #fff; }
+
+    #importDialog, #settingsDialog {
       position: fixed;
       inset: 0;
       z-index: 50;
@@ -156,7 +184,7 @@
       background: rgba(0, 0, 0, 0.45);
     }
 
-    #importDialog.open { display: flex; }
+    #importDialog.open, #settingsDialog.open { display: flex; }
 
     .import-dialog-box {
       width: min(300px, calc(100vw - 32px));
@@ -512,9 +540,15 @@
         height: 20px;
       }
 
-      #playMenu #fullscreenToggle {
+      #playMenu #fullscreenToggle,
+      #playMenu #settingsButton {
         width: 48px;
         height: 48px;
+      }
+
+      #playMenu #settingsButton svg {
+        width: 18px;
+        height: 18px;
       }
 
       #playMenu #fullscreenToggle svg {
@@ -656,6 +690,24 @@
       <button id="fullscreenToggle" class="secondary icon-button" aria-label="Toggle full screen" title="Toggle full screen">
         <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
       </button>
+      <button id="settingsButton" class="secondary icon-button" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="settingsDialog" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="import-dialog-box">
+      <h2>Settings</h2>
+      <div class="setting-row">
+        <span>Number of carts</span>
+        <div class="stepper">
+          <button id="cartCountDown" type="button" class="secondary" aria-label="Fewer carts">−</button>
+          <span id="cartCountValue">4</span>
+          <button id="cartCountUp" type="button" class="secondary" aria-label="More carts">+</button>
+        </div>
+      </div>
+      <button id="settingsClose" type="button" class="good">Close</button>
     </div>
   </div>
 

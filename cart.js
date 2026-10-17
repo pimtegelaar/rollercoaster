@@ -100,19 +100,23 @@
     return mesh;
   }
 
-  const TRAIN_CAR_COUNT = 4;
+  const DEFAULT_CAR_COUNT = 4;
 
-  function createTrain(carSpacing) {
+  function createTrain(carSpacing, carCount = DEFAULT_CAR_COUNT) {
     const train = new THREE.Group();
-    train.name = 'Four car coaster train';
+    train.name = 'Coaster train';
+    setCarCount(train, carCount, carSpacing);
+    return train;
+  }
 
-    for (let i = 0; i < TRAIN_CAR_COUNT; i += 1) {
+  // Rebuilds the cars of an existing train so references to the group stay valid.
+  function setCarCount(train, carCount, carSpacing) {
+    train.clear();
+    for (let i = 0; i < carCount; i += 1) {
       const car = createCoasterCar(i);
       car.userData.trainOffset = i * carSpacing;
       train.add(car);
     }
-
-    return train;
   }
 
   // Side profile of the car shell (x forward, y up) with a sloped, rounded nose.
@@ -366,5 +370,5 @@
     car.add(bogie);
   }
 
-  window.CoasterCart = { createTrain, updateRiders };
+  window.CoasterCart = { createTrain, setCarCount, updateRiders, DEFAULT_CAR_COUNT };
 })();
