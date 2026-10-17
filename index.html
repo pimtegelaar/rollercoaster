@@ -132,8 +132,14 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      pointer-events: none;
+      cursor: text;
       z-index: 4;
+    }
+
+    #coasterTitle.editing {
+      outline: 2px solid #60a5fa;
+      text-overflow: clip;
+      min-width: 80px;
     }
 
     #coasterTitle:empty {
@@ -548,7 +554,7 @@
     </div>
   </div>
 
-  <div id="coasterTitle"></div>
+  <div id="coasterTitle" title="Click to rename" spellcheck="false"></div>
 
   <div id="uiWrap">
   <div id="ui">
@@ -597,9 +603,6 @@
             </button>
             <input type="color" id="trackColorInput" value="#dc2626" tabindex="-1" aria-hidden="true">
           </div>
-          <button id="renameCoaster" type="button" class="secondary icon-button" aria-label="Rename" title="Rename this roller coaster">
-            <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
-          </button>
         </div>
         <div class="wide button-pair-row">
           <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">

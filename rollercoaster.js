@@ -336,12 +336,32 @@
       if (typeof trackColorInput.showPicker === 'function') trackColorInput.showPicker();
       else trackColorInput.click();
     });
-    document.getElementById('renameCoaster').addEventListener('click', () => {
-      const name = prompt('Name this roller coaster:', activeCoaster.name);
-      if (name === null || !name.trim()) return;
-      activeCoaster.name = name.trim().slice(0, 60);
-      ui.coasterTitle.textContent = activeCoaster.name;
+    const title = ui.coasterTitle;
+    const finishRename = (save) => {
+      if (title.contentEditable !== 'true') return;
+      const name = title.textContent.trim().slice(0, 60);
+      title.contentEditable = 'false';
+      title.classList.remove('editing');
+      if (save && name) activeCoaster.name = name;
+      title.textContent = activeCoaster.name;
+      title.blur();
+    };
+    title.addEventListener('click', () => {
+      if (title.contentEditable === 'true') return;
+      title.contentEditable = 'true';
+      title.classList.add('editing');
+      title.focus();
+      const range = document.createRange();
+      range.selectNodeContents(title);
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
     });
+    title.addEventListener('keydown', (e) => {
+      if (e.code === 'Enter') { e.preventDefault(); finishRename(true); }
+      else if (e.code === 'Escape') { e.preventDefault(); finishRename(false); }
+    });
+    title.addEventListener('blur', () => finishRename(true));
     trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.addCoaster.addEventListener('click', () => setPlacingCoaster(!placingCoaster));
@@ -372,6 +392,7 @@
     });
 
     window.addEventListener('keydown', (event) => {
+      if (event.target === ui.coasterTitle) return;
       if (event.code === 'Escape') {
         if (placingCoaster) setPlacingCoaster(false);
         if (movingCoaster) cancelMove();
