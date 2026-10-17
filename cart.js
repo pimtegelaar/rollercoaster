@@ -100,7 +100,7 @@
     return mesh;
   }
 
-  const DEFAULT_CAR_COUNT = 4;
+  const DEFAULT_CAR_COUNT = 7;
 
   function createTrain(carSpacing, carCount = DEFAULT_CAR_COUNT) {
     const train = new THREE.Group();
