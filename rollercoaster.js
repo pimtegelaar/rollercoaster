@@ -175,9 +175,11 @@
   const MIN_CARTS = 1;
   const MAX_CARTS = 50;
   const settings = loadSettings();
-  const cart = window.CoasterCart.createTrain(TRAIN_CAR_SPACING, settings.cartCount);
-  cart.visible = false;
-  scene.add(cart);
+  // Each running coaster has its own train. The ride-state variables below
+  // (cart, cartDistance, ...) hold the state of the ride currently being
+  // updated; runRide() swaps a ride's state in and out of them.
+  let cart = null;
+  const rides = [];
 
   const ui = {
     panel: document.getElementById('ui'),
@@ -238,7 +240,9 @@
   let totalTrackLength = 0;
 
   let selectedSectionType = 'straight';
+  // True while the active coaster has a train running.
   let isTesting = false;
+  let currentRide = null;
   let cartDistance = 0;
   let minCartSpeed = Number(ui.speedSlider.value);
   let cartSpeed = minCartSpeed;
@@ -407,6 +411,7 @@
     ui.speedSlider.addEventListener('input', () => {
       ui.speedValue.textContent = ui.speedSlider.value;
       minCartSpeed = Number(ui.speedSlider.value);
+      if (activeCoaster.ride) activeCoaster.ride.minSpeed = minCartSpeed;
     });
 
     window.addEventListener('keydown', (event) => {
@@ -494,6 +499,7 @@
       currentPos: position.clone(),
       currentDir: direction.clone(),
       isClosedLoop: false,
+      ride: null,
       name: `Roller coaster ${++coasterCounter}`,
       color: DEFAULT_TRACK_COLOR,
       minSpeed: Number(ui.speedSlider.value),
@@ -549,6 +555,9 @@
     minCartSpeed = coaster.minSpeed;
     ui.speedSlider.value = minCartSpeed;
     ui.speedValue.textContent = minCartSpeed;
+
+    isTesting = !!coaster.ride;
+    updateTestButton();
 
     for (const other of coasters) {
       other.marker.material.color.setHex(other === coaster ? START_MARKER_COLOR_ACTIVE : START_MARKER_COLOR_INACTIVE);
@@ -686,7 +695,8 @@
   }
 
   function handleCanvasTap(clientX, clientY, fromMouse = false) {
-    if (isTesting) return;
+    // Other coasters can be selected during a ride only with the free camera.
+    if (isTesting && viewMode !== 'free') return;
 
     if (movingCoaster) {
       // A mouse click places the coaster where it is hovering. Touch has no
@@ -1117,41 +1127,64 @@
       return;
     }
 
-    if (crashCameraHold) stopTest();
-
-    preRideCameraState = {
-      position: camera.position.clone(),
-      fov: camera.fov,
-      yaw: cameraYaw,
-      pitch: cameraPitch,
-    };
+    if (!preRideCameraState) {
+      preRideCameraState = {
+        position: camera.position.clone(),
+        fov: camera.fov,
+        yaw: cameraYaw,
+        pitch: cameraPitch,
+      };
+    }
 
     setPlacingCoaster(false);
+    const ride = {
+      coaster: activeCoaster,
+      cart: window.CoasterCart.createTrain(TRAIN_CAR_SPACING, settings.cartCount),
+      points: sampledPoints,
+      distances: sampledDistances,
+      frames: sampledFrames,
+      length: totalTrackLength,
+      closed: isClosedLoop,
+      minSpeed: minCartSpeed,
+      speed: minCartSpeed,
+      distance: 0,
+      flying: false,
+      crashHold: false,
+      crashDelay: 0
+    };
+    activeCoaster.ride = ride;
+    rides.push(ride);
+    scene.add(ride.cart);
+
     isTesting = true;
-    isFlying = false;
-    cart.visible = true;
-    cart.children.forEach((carObject) => { carObject.visible = true; });
-    cartDistance = 0;
     rideLookYaw = 0;
     rideLookPitch = 0;
-    cartSpeed = minCartSpeed;
     updateTestButton();
     updatePreviewSection();
-    updateCart(0);
+    runRide(ride, () => updateCart(0));
     const viewLabel = viewMode === 'free' ? 'free camera' : `${viewMode} person`;
-    setStatus(`Testing the train in ${viewLabel}${isClosedLoop ? ' on a closed loop' : ''}. ${viewMode === 'free' ? 'WASD and drag to move the camera.' : 'Drag to look around.'} Press the stop button to return to free camera.`);
+    setStatus(`Testing the train in ${viewLabel}${isClosedLoop ? ' on a closed loop' : ''}. ${viewMode === 'free' ? 'WASD and drag to move the camera. Select another coaster to start its train too.' : 'Drag to look around.'} Press the stop button to stop this train.`);
   }
 
   function stopTest() {
-    crashCameraHold = false;
-    isTesting = false;
-    isFlying = false;
-    cart.visible = false;
-    camera.up.set(0, 1, 0);
-    rideLookYaw = 0;
-    rideLookPitch = 0;
+    if (activeCoaster.ride) stopRide(activeCoaster.ride);
+  }
 
-    if (preRideCameraState) {
+  function stopRide(ride, message) {
+    const coaster = ride.coaster;
+    const followed = coaster === activeCoaster && viewMode !== 'free';
+    rides.splice(rides.indexOf(ride), 1);
+    coaster.ride = null;
+    scene.remove(ride.cart);
+
+    if (coaster === activeCoaster) {
+      isTesting = false;
+      camera.up.set(0, 1, 0);
+      rideLookYaw = 0;
+      rideLookPitch = 0;
+    }
+
+    if (preRideCameraState && (rides.length === 0 || followed)) {
       camera.position.copy(preRideCameraState.position);
       camera.fov = preRideCameraState.fov;
       camera.updateProjectionMatrix();
@@ -1162,7 +1195,41 @@
 
     updateTestButton();
     updatePreviewSection();
-    setStatus(isClosedLoop ? 'Test stopped. The coaster remains closed; press Undo to reopen it or Play to ride again.' : 'Test stopped. WASD, mouse drag, and touch controls are back on the free camera.');
+    setStatus(message || (isClosedLoop ? 'Test stopped. The coaster remains closed; press Undo to reopen it or Play to ride again.' : 'Test stopped. WASD, mouse drag, and touch controls are back on the free camera.'));
+  }
+
+  // Runs fn with the ride's state loaded into the working ride variables.
+  function runRide(ride, fn) {
+    const saved = {
+      cart, currentRide, sampledPoints, sampledDistances, sampledFrames, totalTrackLength, isClosedLoop,
+      minCartSpeed, cartSpeed, cartDistance, isFlying, crashCameraHold, crashCameraDelay
+    };
+    cart = ride.cart;
+    currentRide = ride;
+    sampledPoints = ride.points;
+    sampledDistances = ride.distances;
+    sampledFrames = ride.frames;
+    totalTrackLength = ride.length;
+    isClosedLoop = ride.closed;
+    minCartSpeed = ride.minSpeed;
+    cartSpeed = ride.speed;
+    cartDistance = ride.distance;
+    isFlying = ride.flying;
+    crashCameraHold = ride.crashHold;
+    crashCameraDelay = ride.crashDelay;
+    try {
+      fn();
+    } finally {
+      ride.speed = cartSpeed;
+      ride.distance = cartDistance;
+      ride.flying = isFlying;
+      ride.crashHold = crashCameraHold;
+      ride.crashDelay = crashCameraDelay;
+      ({
+        cart, currentRide, sampledPoints, sampledDistances, sampledFrames, totalTrackLength, isClosedLoop,
+        minCartSpeed, cartSpeed, cartDistance, isFlying, crashCameraHold, crashCameraDelay
+      } = saved);
+    }
   }
 
   function updateTestButton() {
@@ -1584,15 +1651,13 @@
     followCart(leadState.position, leadState.tangent, leadState.frame);
   }
 
-  function releaseCrashCamera() {
-    stopTest();
-    setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
-  }
-
   function updateExplosions(dt) {
-    if (crashCameraHold && !isFlying && !explosions.isActive()) {
-      crashCameraDelay -= dt;
-      if (crashCameraDelay <= 0) releaseCrashCamera();
+    for (const ride of [...rides]) {
+      if (!ride.crashHold || ride.flying || explosions.isActive()) continue;
+      ride.crashDelay -= dt;
+      if (ride.crashDelay <= 0) {
+        stopRide(ride, 'The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
+      }
     }
 
     explosions.update(dt);
@@ -1713,8 +1778,6 @@
     if (flying.every((car) => car && car.crashed)) {
       isFlying = false;
       cart.visible = false;
-      updateTestButton();
-      updatePreviewSection();
       setStatus('The train flew off the track and crashed! Add more sections, use Snap loop, or press Play again.');
     }
   }
@@ -1743,8 +1806,10 @@
 
   function setCartCount(count) {
     settings.cartCount = Math.min(MAX_CARTS, Math.max(MIN_CARTS, count));
-    window.CoasterCart.setCarCount(cart, settings.cartCount, TRAIN_CAR_SPACING);
-    if (isTesting && !isFlying) placeTrain(cartDistance);
+    for (const ride of rides) {
+      window.CoasterCart.setCarCount(ride.cart, settings.cartCount, TRAIN_CAR_SPACING);
+      if (!ride.flying) runRide(ride, () => placeTrain(cartDistance));
+    }
     saveSettings();
     updateSettingsUi();
   }
@@ -1839,7 +1904,7 @@
   }
 
   function followCart(position, tangent, trackFrame) {
-    if (viewMode === 'free') return;
+    if (viewMode === 'free' || currentRide !== activeCoaster.ride) return;
 
     const frame = trackFrame || makeTrackFrame(tangent);
     const direction = frame.forward;
@@ -1930,7 +1995,7 @@
     const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
 
-    const targets = [...coasters.map((coaster) => coaster.group), ground, cart];
+    const targets = [...coasters.map((coaster) => coaster.group), ground, ...rides.map((ride) => ride.cart)];
     const hits = raycaster.intersectObjects(targets, true).filter((hit) => !hit.object.userData.hit);
 
     const travelFraction = 0.5;
@@ -2187,9 +2252,11 @@
     directionArrow.visible = !isTesting && !isClosedLoop && !movingCoaster;
 
     clouds.update(dt);
-    if (isTesting && (!crashCameraHold || isFlying)) updateCart(dt);
+    for (const ride of rides) {
+      if (!ride.crashHold || ride.flying) runRide(ride, () => updateCart(dt));
+    }
     updateExplosions(dt);
-    if (!isRideCameraActive() && !crashCameraHold) {
+    if (!isRideCameraActive()) {
       updateCameraGlide(now);
       updateFreeCamera(dt);
     }
