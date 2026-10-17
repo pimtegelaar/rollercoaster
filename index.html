@@ -146,16 +146,6 @@
       display: none;
     }
 
-    #playMenu #settingsButton {
-      width: 60px;
-      height: 60px;
-    }
-
-    #playMenu #settingsButton svg {
-      width: 24px;
-      height: 24px;
-    }
-
     .setting-row {
       display: flex;
       align-items: center;
@@ -540,15 +530,9 @@
         height: 20px;
       }
 
-      #playMenu #fullscreenToggle,
-      #playMenu #settingsButton {
+      #playMenu #fullscreenToggle {
         width: 48px;
         height: 48px;
-      }
-
-      #playMenu #settingsButton svg {
-        width: 18px;
-        height: 18px;
       }
 
       #playMenu #fullscreenToggle svg {
@@ -637,6 +621,9 @@
             </button>
             <input type="color" id="trackColorInput" value="#dc2626" tabindex="-1" aria-hidden="true">
           </div>
+          <button id="settingsButton" class="secondary icon-button" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></svg>
+          </button>
         </div>
         <div class="wide button-pair-row">
           <button id="exportTrack" class="secondary icon-button" aria-label="Export" title="Export coaster as JSON">
@@ -689,9 +676,6 @@
     <div class="play-menu-column">
       <button id="fullscreenToggle" class="secondary icon-button" aria-label="Toggle full screen" title="Toggle full screen">
         <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-      </button>
-      <button id="settingsButton" class="secondary icon-button" aria-label="Settings" title="Settings">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M4.9 4.9l2.1 2.1"/><path d="M17 17l2.1 2.1"/><path d="M4.9 19.1L7 17"/><path d="M17 7l2.1-2.1"/></svg>
       </button>
     </div>
   </div>
