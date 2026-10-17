@@ -1963,7 +1963,7 @@
   function makePreviewMaterial(baseMaterial) {
     const material = baseMaterial.clone();
     material.transparent = true;
-    material.opacity = 0.5;
+    material.opacity = 0.15;
     material.depthWrite = false;
     return material;
   }
