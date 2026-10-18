@@ -215,7 +215,6 @@
     cartCountDown: document.getElementById('cartCountDown'),
     cartCountUp: document.getElementById('cartCountUp'),
     cartCountValue: document.getElementById('cartCountValue'),
-    clear: document.getElementById('clear'),
     undo: document.getElementById('undo'),
     redo: document.getElementById('redo')
   };
@@ -408,10 +407,6 @@
     deleteDialog.addEventListener('click', (e) => {
       if (e.target === deleteDialog) deleteDialog.classList.remove('open');
     });
-    document.getElementById('clear').addEventListener('click', () => {
-      deleteDialog.classList.add('open');
-    });
-    document.getElementById('exportTrack').addEventListener('click', exportTrack);
     const importDialog = document.getElementById('importDialog');
     document.getElementById('importTrack').addEventListener('click', () => {
       importDialog.classList.add('open');
@@ -439,10 +434,6 @@
       e.target.value = '';
     });
     const trackColorInput = document.getElementById('trackColorInput');
-    document.getElementById('trackColorButton').addEventListener('click', () => {
-      if (typeof trackColorInput.showPicker === 'function') trackColorInput.showPicker();
-      else trackColorInput.click();
-    });
     const title = ui.coasterTitle;
     // Keep the title above the on-screen keyboard while renaming.
     const vv = window.visualViewport;
@@ -1647,7 +1638,6 @@
     if (ui.placeSection) ui.placeSection.disabled = isClosedLoop;
     if (ui.snapStart) ui.snapStart.disabled = trackSegments.length === 0 || isClosedLoop;
     if (ui.testCoaster) ui.testCoaster.disabled = !isTesting && (sampledPoints.length < 2 || totalTrackLength < 2);
-    if (ui.clear) ui.clear.disabled = trackSegments.length === 0 && coasters.length < 2;
     if (ui.undo) ui.undo.disabled = trackSegments.length === 0;
     if (ui.redo) ui.redo.disabled = redoStack.length === 0;
 
