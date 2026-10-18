@@ -408,8 +408,9 @@
       if (e.target === deleteDialog) deleteDialog.classList.remove('open');
     });
     const importDialog = document.getElementById('importDialog');
-    document.getElementById('importTrack').addEventListener('click', () => {
-      importDialog.classList.add('open');
+    document.getElementById('newCoaster').addEventListener('click', () => {
+      importDialog.classList.remove('open');
+      setPlacingCoaster(true);
     });
     document.getElementById('importDevice').addEventListener('click', () => {
       importDialog.classList.remove('open');
@@ -521,7 +522,10 @@
       }
     });
     ui.testCoaster.addEventListener('click', toggleTest);
-    ui.addCoaster.addEventListener('click', () => setPlacingCoaster(!placingCoaster));
+    ui.addCoaster.addEventListener('click', () => {
+      if (placingCoaster) setPlacingCoaster(false);
+      else document.getElementById('importDialog').classList.add('open');
+    });
     ui.fullscreenToggle.addEventListener('click', toggleFullscreen);
     ui.settingsButton.addEventListener('click', () => ui.settingsDialog.classList.add('open'));
     ui.settingsClose.addEventListener('click', () => ui.settingsDialog.classList.remove('open'));
