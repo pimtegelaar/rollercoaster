@@ -237,6 +237,8 @@
   // Extra rotation (radians, multiples of 45 degrees) applied while placing.
   let placeRotation = 0;
   let moveReturnTo = null;
+  // True when moving a coaster that is already placed (cancel restores it).
+  let movingExisting = false;
   let moveReplace = null;
   let sampledPoints = [];
   let sampledDistances = [];
@@ -383,6 +385,49 @@
     });
     title.addEventListener('blur', () => finishRename(true));
     trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
+
+    const menu = document.getElementById('coasterMenu');
+    let menuCoaster = null;
+    const closeMenu = () => menu.classList.remove('open');
+    canvas.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      closeMenu();
+      if (movingCoaster || placingCoaster) return;
+      if (isTesting && viewMode !== 'free') return;
+      menuCoaster = pickCoaster(event.clientX, event.clientY);
+      if (!menuCoaster) return;
+      menu.classList.add('open');
+      menu.style.left = Math.max(0, Math.min(event.clientX, window.innerWidth - menu.offsetWidth)) + 'px';
+      menu.style.top = Math.max(0, Math.min(event.clientY, window.innerHeight - menu.offsetHeight)) + 'px';
+    });
+    window.addEventListener('pointerdown', (event) => {
+      if (!menu.contains(event.target)) closeMenu();
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Escape') closeMenu();
+    });
+    window.addEventListener('blur', closeMenu);
+    menu.addEventListener('click', (event) => {
+      const action = event.target.dataset && event.target.dataset.action;
+      const coaster = menuCoaster;
+      closeMenu();
+      if (!action || !coaster || !coasters.includes(coaster)) return;
+      if (coaster !== activeCoaster) activateCoaster(coaster);
+      if (action === 'color') {
+        if (typeof trackColorInput.showPicker === 'function') trackColorInput.showPicker();
+        else trackColorInput.click();
+      } else if (action === 'rename') {
+        title.click();
+      } else if (action === 'move') {
+        if (isTesting) stopTest();
+        beginMove(coaster, null, true);
+        setStatus('Move the coaster, then click or press Place.');
+      } else if (action === 'save') {
+        exportTrack();
+      } else if (action === 'delete') {
+        if (confirm('Are you sure you want to delete this roller coaster?')) clearTrack();
+      }
+    });
     ui.testCoaster.addEventListener('click', toggleTest);
     ui.addCoaster.addEventListener('click', () => setPlacingCoaster(!placingCoaster));
     ui.fullscreenToggle.addEventListener('click', toggleFullscreen);
@@ -606,8 +651,9 @@
     ghostArrow.visible = false;
   }
 
-  function beginMove(coaster, returnTo) {
+  function beginMove(coaster, returnTo, existing = false) {
     movingCoaster = coaster;
+    movingExisting = existing;
     moveBase = coaster.startPos.clone();
     movePoint = null;
     placeRotation = 0;
@@ -703,12 +749,25 @@
     setMovingUI(false);
     if (replace && replace.segments.length === 0) removeCoaster(replace);
     rebuildTrackMeshes();
-    setStatus('Placed the imported coaster.');
+    setStatus(movingExisting ? 'Moved the coaster.' : 'Placed the imported coaster.');
+    movingExisting = false;
   }
 
   function cancelMove() {
     const coaster = movingCoaster;
     if (!coaster) return;
+    if (movingExisting) {
+      coaster.group.position.set(0, 0, 0);
+      coaster.group.rotation.y = 0;
+      coaster.marker.position.set(coaster.startPos.x, coaster.startPos.y - 0.08, coaster.startPos.z);
+      movingCoaster = null;
+      movingExisting = false;
+      movePoint = null;
+      placeRotation = 0;
+      setMovingUI(false);
+      setStatus('Move cancelled.');
+      return;
+    }
     const back = coasters.includes(moveReturnTo) ? moveReturnTo : coasters.find((c) => c !== coaster);
     movingCoaster = null;
     moveReplace = null;
