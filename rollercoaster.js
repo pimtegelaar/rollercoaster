@@ -103,8 +103,12 @@
   scene.add(hemi);
 
   const sun = new THREE.DirectionalLight(0xffffff, 2.15);
-  sun.position.set(25, 45, 20);
+  // Keep the sun far away (same direction as before) so tall track isn't above
+  // the light and clipped out of the shadow map.
+  sun.position.set(25, 45, 20).normalize().multiplyScalar(300);
   sun.castShadow = true;
+  sun.shadow.camera.near = 10;
+  sun.shadow.camera.far = 700;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -70;
   sun.shadow.camera.right = 70;
@@ -301,6 +305,59 @@
   };
   let lastTime = performance.now();
   let mouseDownPos = null;
+
+  // Fit the sun's shadow frustum to the coasters so the shadow map isn't spent
+  // on empty ground and tall or distant track isn't clipped.
+  const sunDirection = new THREE.Vector3(25, 45, 20).normalize();
+  const shadowBox = new THREE.Box3();
+  const shadowItemBox = new THREE.Box3();
+  const shadowCorner = new THREE.Vector3();
+  const shadowCenter = new THREE.Vector3();
+  const shadowLight = new THREE.OrthographicCamera();
+  let shadowFitTimer = 0;
+
+  function fitSunShadow() {
+    shadowBox.set(new THREE.Vector3(-10, 0, -10), new THREE.Vector3(10, 4, 10));
+    for (const coaster of coasters) {
+      if (!coaster.group) continue;
+      shadowItemBox.setFromObject(coaster.group);
+      if (!shadowItemBox.isEmpty()) shadowBox.union(shadowItemBox);
+    }
+    shadowBox.getCenter(shadowCenter);
+
+    shadowLight.position.copy(shadowCenter).addScaledVector(sunDirection, 300);
+    shadowLight.lookAt(shadowCenter);
+    shadowLight.updateMatrixWorld(true);
+    const toLight = shadowLight.matrixWorld.clone().invert();
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      shadowCorner.set(
+        i & 1 ? shadowBox.max.x : shadowBox.min.x,
+        i & 2 ? shadowBox.max.y : shadowBox.min.y,
+        i & 4 ? shadowBox.max.z : shadowBox.min.z
+      ).applyMatrix4(toLight);
+      minX = Math.min(minX, shadowCorner.x); maxX = Math.max(maxX, shadowCorner.x);
+      minY = Math.min(minY, shadowCorner.y); maxY = Math.max(maxY, shadowCorner.y);
+      minZ = Math.min(minZ, shadowCorner.z); maxZ = Math.max(maxZ, shadowCorner.z);
+    }
+
+    const pad = 6;
+    const cam = sun.shadow.camera;
+    cam.left = minX - pad;
+    cam.right = maxX + pad;
+    cam.bottom = minY - pad;
+    cam.top = maxY + pad;
+    cam.near = Math.max(1, -maxZ - pad);
+    cam.far = -minZ + pad;
+    cam.updateProjectionMatrix();
+
+    sun.target.position.copy(shadowCenter);
+    sun.target.updateMatrixWorld();
+    sun.position.copy(shadowLight.position);
+  }
+  scene.add(sun.target);
+  fitSunShadow();
 
   activateCoaster(createCoaster(initialPos.clone(), initialDir.clone(), {
     rail: materials.rail,
@@ -2464,6 +2521,12 @@
     const now = performance.now();
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
+
+    shadowFitTimer -= dt;
+    if (shadowFitTimer <= 0) {
+      shadowFitTimer = 0.5;
+      fitSunShadow();
+    }
 
     endpointMarker.visible = !isTesting && !isClosedLoop;
     directionArrow.visible = !isTesting && !isClosedLoop;
