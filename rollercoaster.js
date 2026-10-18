@@ -232,6 +232,10 @@
   // Set while an imported coaster is being positioned before it is committed.
   let movingCoaster = null;
   let moveBase = null;
+  let movePoint = null;
+  let lastGhostPoint = null;
+  // Extra rotation (radians, multiples of 45 degrees) applied while placing.
+  let placeRotation = 0;
   let moveReturnTo = null;
   let moveReplace = null;
   let sampledPoints = [];
@@ -339,6 +343,8 @@
     importDialog.addEventListener('click', (e) => {
       if (e.target === importDialog) importDialog.classList.remove('open');
     });
+    document.getElementById('rotateLeft').addEventListener('click', () => rotatePlacement(1));
+    document.getElementById('rotateRight').addEventListener('click', () => rotatePlacement(-1));
     document.getElementById('movePlace').addEventListener('click', commitMove);
     document.getElementById('moveCancel').addEventListener('click', cancelMove);
     document.getElementById('importFile').addEventListener('change', (e) => {
@@ -419,6 +425,10 @@
       if (event.code === 'Escape') {
         if (placingCoaster) setPlacingCoaster(false);
         if (movingCoaster) cancelMove();
+      }
+      if ((event.code === 'KeyQ' || event.code === 'KeyE') && !/^(INPUT|TEXTAREA)$/.test(event.target.tagName)) {
+        rotatePlacement(event.code === 'KeyQ' ? 1 : -1);
+        return;
       }
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ControlLeft', 'ControlRight'].includes(event.code)) {
         keys.add(event.code);
@@ -575,12 +585,23 @@
     for (const mat of Object.values(coaster.mats)) mat.dispose();
   }
 
+  function updateHintText() {
+    const touchOnly = window.matchMedia('(hover: none)').matches;
+    let text;
+    if (movingCoaster) {
+      text = touchOnly ? 'Drag or tap to position the coaster, then press Place' : 'Click to place the coaster';
+    } else if (placingCoaster) {
+      text = 'Tap the ground to start a new roller coaster';
+    } else {
+      text = 'Rotate the start direction';
+    }
+    if (!touchOnly) text += ' (rotate with Q or E)';
+    document.getElementById('placeHintText').textContent = text;
+  }
+
   function setMovingUI(moving) {
     document.body.classList.toggle('moving-coaster', moving);
-    const touchOnly = window.matchMedia('(hover: none)').matches;
-    document.getElementById('placeHintText').textContent = moving
-      ? (touchOnly ? 'Drag or tap to position the coaster, then press Place' : 'Click to place the coaster')
-      : 'Tap the ground to start a new roller coaster';
+    updateHintText();
     ghostMarker.visible = false;
     ghostArrow.visible = false;
   }
@@ -588,6 +609,8 @@
   function beginMove(coaster, returnTo) {
     movingCoaster = coaster;
     moveBase = coaster.startPos.clone();
+    movePoint = null;
+    placeRotation = 0;
     moveReturnTo = returnTo;
     // An untouched coaster would only be left behind as a stray start marker.
     moveReplace = returnTo && returnTo.segments.length === 0 ? returnTo : null;
@@ -596,36 +619,82 @@
 
   function moveCoasterTo(point) {
     const coaster = movingCoaster;
-    coaster.group.position.set(point.x - moveBase.x, 0, point.z - moveBase.z);
+    movePoint = point;
+    // Rotate about the start point, then put the start point on the target.
+    const rotatedBase = moveBase.clone().applyAxisAngle(worldUp, placeRotation);
+    coaster.group.rotation.y = placeRotation;
+    coaster.group.position.set(point.x - rotatedBase.x, 0, point.z - rotatedBase.z);
     coaster.marker.position.set(point.x, point.y - 0.08, point.z);
   }
 
-  function translateCoaster(coaster, dx, dz) {
-    const vectors = new Set([coaster.startPos]);
+  function rotatePlacement(steps) {
+    if (canRotateStart()) {
+      const angle = steps * Math.PI / 4;
+      initialDir.applyAxisAngle(worldUp, angle);
+      currentDir.applyAxisAngle(worldUp, angle);
+      activeCoaster.currentDir.copy(currentDir);
+      rebuildTrackMeshes();
+      return;
+    }
+    if (!placingCoaster && !movingCoaster) return;
+    placeRotation += steps * Math.PI / 4;
+    if (movingCoaster && movePoint) moveCoasterTo(movePoint);
+    else if (movingCoaster) coasterRotationPreview();
+    else if (lastGhostPoint) updateGhostAt(lastGhostPoint);
+  }
+
+  function coasterRotationPreview() {
+    // No pointer position yet: rotate in place about the start point.
+    const coaster = movingCoaster;
+    const rotatedBase = moveBase.clone().applyAxisAngle(worldUp, placeRotation);
+    coaster.group.rotation.y = placeRotation;
+    coaster.group.position.set(moveBase.x - rotatedBase.x, 0, moveBase.z - rotatedBase.z);
+  }
+
+  // Rotates the coaster about `pivot` (start point) and moves the pivot to `target`.
+  function transformCoaster(coaster, pivot, target, angle) {
+    const pivotX = pivot.x;
+    const pivotZ = pivot.z;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const rotate = (v, x, z) => {
+      // Matches Vector3.applyAxisAngle about +Y.
+      v.x = cos * x + sin * z;
+      v.z = -sin * x + cos * z;
+    };
+
+    const positions = new Set([coaster.startPos, coaster.currentPos, currentPos]);
+    const directions = new Set([coaster.startDir, coaster.currentDir, currentDir]);
     for (const seg of coaster.segments) {
-      vectors.add(seg.start);
-      vectors.add(seg.end);
+      positions.add(seg.start);
+      positions.add(seg.end);
+      directions.add(seg.startDir);
+      directions.add(seg.endDir);
       const curve = seg.curve;
       for (const v of [curve.v0, curve.v1, curve.v2, curve.v3, ...(curve.points || [])]) {
-        if (v) vectors.add(v);
+        if (v) positions.add(v);
       }
     }
-    for (const v of vectors) {
-      v.x += dx;
-      v.z += dz;
+    for (const v of positions) {
+      rotate(v, v.x - pivotX, v.z - pivotZ);
+      v.x += target.x;
+      v.z += target.z;
+    }
+    for (const d of directions) {
+      if (d) rotate(d, d.x, d.z);
     }
   }
 
   function commitMove() {
     const coaster = movingCoaster;
     if (!coaster) return;
-    const dx = coaster.group.position.x;
-    const dz = coaster.group.position.z;
+    const target = coaster.marker.position.clone();
     coaster.group.position.set(0, 0, 0);
-    translateCoaster(coaster, dx, dz);
-    currentPos.x += dx;
-    currentPos.z += dz;
+    coaster.group.rotation.y = 0;
+    transformCoaster(coaster, moveBase, target, placeRotation);
     coaster.marker.position.set(coaster.startPos.x, coaster.startPos.y - 0.08, coaster.startPos.z);
+    movePoint = null;
+    placeRotation = 0;
 
     const replace = moveReplace;
     movingCoaster = null;
@@ -654,9 +723,12 @@
   function setPlacingCoaster(placing) {
     if (placing && (isTesting || movingCoaster)) return;
     placingCoaster = placing;
+    placeRotation = 0;
+    lastGhostPoint = null;
     ghostMarker.visible = false;
     ghostArrow.visible = false;
     document.body.classList.toggle('placing-coaster', placing);
+    updateHintText();
     ui.addCoaster.classList.toggle('selected', placing);
     if (placing) setStatus('Pick a spot on the ground to start a new roller coaster.');
   }
@@ -665,6 +737,10 @@
     const forward = camera.getWorldDirection(new THREE.Vector3());
     if (Math.abs(forward.x) >= Math.abs(forward.z)) return new THREE.Vector3(Math.sign(forward.x) || 1, 0, 0);
     return new THREE.Vector3(0, 0, Math.sign(forward.z));
+  }
+
+  function placementDirection() {
+    return newCoasterDirection().applyAxisAngle(worldUp, placeRotation);
   }
 
   function groundPointAt(clientX, clientY) {
@@ -687,10 +763,14 @@
     }
     ghostMarker.visible = !!point;
     ghostArrow.visible = !!point;
-    if (!point) return;
+    lastGhostPoint = point;
+    if (point) updateGhostAt(point);
+  }
+
+  function updateGhostAt(point) {
     ghostMarker.position.set(point.x, point.y - 0.08, point.z);
     ghostArrow.position.copy(point);
-    ghostArrow.setDirection(newCoasterDirection());
+    ghostArrow.setDirection(placementDirection());
     ghostArrow.setLength(3, 0.7, 0.35);
   }
 
@@ -711,7 +791,7 @@
     if (placingCoaster) {
       const point = groundPointAt(clientX, clientY);
       if (!point) return;
-      const coaster = createCoaster(point, newCoasterDirection());
+      const coaster = createCoaster(point, placementDirection());
       setPlacingCoaster(false);
       activateCoaster(coaster);
       setStatus(`Started coaster ${coasters.length}. Build from the blue start marker.`);
@@ -1612,6 +1692,13 @@
     directionArrow.setDirection(currentDir.clone().normalize());
     directionArrow.setLength(3, 0.7, 0.35);
     directionArrow.visible = !isTesting && !isClosedLoop;
+    document.body.classList.toggle('rotating-start', canRotateStart());
+    updateHintText();
+  }
+
+  // An untouched coaster can still be turned before the first section is built.
+  function canRotateStart() {
+    return !!activeCoaster && trackSegments.length === 0 && !isTesting && !placingCoaster && !movingCoaster;
   }
 
   function cylinderBetween(a, b, radius, material, radialSegments) {

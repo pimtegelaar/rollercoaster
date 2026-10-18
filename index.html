@@ -217,13 +217,44 @@
       gap: 12px;
     }
 
-    #moveActions {
+    #moveActions,
+    #rotateActions {
       display: none;
       gap: 8px;
     }
 
+    body.placing-coaster #placeHint,
     body.moving-coaster #placeHint {
       pointer-events: auto;
+    }
+
+    #rotateActions button {
+      min-width: 52px;
+      height: 44px;
+      padding: 0 14px;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    body.placing-coaster #rotateActions {
+      display: flex;
+    }
+
+    body.rotating-start:not(.placing-coaster):not(.moving-coaster) #placeHint {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+
+    body.rotating-start #rotateActions {
+      display: flex;
+    }
+
+    body.moving-coaster #rotateActions {
+      display: flex;
     }
 
     body.moving-coaster #moveActions {
@@ -665,6 +696,10 @@
 
   <div id="placeHint">
     <span id="placeHintText">Tap the ground to start a new roller coaster</span>
+    <span id="rotateActions">
+      <button id="rotateLeft" class="secondary small-text-button" aria-label="Rotate left 45 degrees" title="Rotate left 45° (Q)">&#8634;</button>
+      <button id="rotateRight" class="secondary small-text-button" aria-label="Rotate right 45 degrees" title="Rotate right 45° (E)">&#8635;</button>
+    </span>
     <span id="moveActions">
       <button id="movePlace" class="good small-text-button">Place</button>
       <button id="moveCancel" class="secondary small-text-button">Cancel</button>
