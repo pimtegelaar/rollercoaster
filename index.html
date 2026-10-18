@@ -296,8 +296,8 @@
       display: flex;
     }
 
-    body.moving-coaster #uiWrap,
-    body.moving-coaster #playMenu {
+    body.moving-coaster:not(.moving-initial) #uiWrap,
+    body.moving-coaster:not(.moving-initial) #playMenu {
       pointer-events: none;
       opacity: 0.5;
     }

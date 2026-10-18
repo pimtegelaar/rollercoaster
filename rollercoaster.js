@@ -309,6 +309,11 @@
   }));
   bindUI();
   rebuildTrackMeshes();
+  // Like a new coaster, the first one can be positioned and rotated right away.
+  beginMove(activeCoaster, null, true);
+  // The build menu stays usable; placing the first section confirms the position.
+  document.body.classList.add('moving-initial');
+  setStatus('Move the coaster, then click or press Place.');
   animate();
 
   function closeCoasterMenu() {
@@ -489,7 +494,10 @@
         if (placingCoaster) setPlacingCoaster(false);
         if (movingCoaster) cancelMove();
       }
-      if ((event.code === 'KeyQ' || event.code === 'KeyE') && !/^(INPUT|TEXTAREA)$/.test(event.target.tagName)) {
+      // Sliders keep focus after a click, so only text-entry fields block Q/E.
+      const typing = event.target.tagName === 'TEXTAREA' ||
+        (event.target.tagName === 'INPUT' && !/^(range|checkbox|radio|button|color)$/.test(event.target.type));
+      if ((event.code === 'KeyQ' || event.code === 'KeyE') && !typing) {
         rotatePlacement(event.code === 'KeyQ' ? 1 : -1);
         return;
       }
@@ -662,8 +670,27 @@
     document.getElementById('placeHintText').textContent = text;
   }
 
+  // The end marker, direction arrow and section preview live outside the
+  // coaster's group, so they follow its move/rotation here.
+  function syncHelpersWithMove() {
+    const moving = movingCoaster && movingCoaster === activeCoaster;
+    const angle = moving ? movingCoaster.group.rotation.y : 0;
+    const offset = moving ? movingCoaster.group.position : new THREE.Vector3();
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const place = (v) => new THREE.Vector3(cos * v.x + sin * v.z + offset.x, v.y, -sin * v.x + cos * v.z + offset.z);
+    endpointMarker.position.copy(place(currentPos));
+    directionArrow.position.copy(place(currentPos));
+    directionArrow.setDirection(currentDir.clone().applyAxisAngle(worldUp, angle).normalize());
+    directionArrow.setLength(3, 0.7, 0.35);
+    previewGroup.rotation.y = angle;
+    previewGroup.position.copy(offset);
+  }
+
   function setMovingUI(moving) {
     document.body.classList.toggle('moving-coaster', moving);
+    if (!moving) document.body.classList.remove('moving-initial');
+    updatePreviewSection();
     updateHintText();
     ghostMarker.visible = false;
     ghostArrow.visible = false;
@@ -1120,6 +1147,7 @@
 
   function addSection(type) {
     if (isTesting) stopTest();
+    if (document.body.classList.contains('moving-initial') && movingCoaster) commitMove();
 
     if (isClosedLoop) {
       setStatus('This coaster is already closed. Press Undo to reopen the loop, or delete the coaster to start over.');
@@ -1264,6 +1292,7 @@
       activeCoaster = null;
       activateCoaster(coasters[coasters.length - 1]);
       setStatus('Coaster removed.');
+      if (activeCoaster.segments.length === 0) beginEmptyCoasterMove();
       return;
     }
 
@@ -1273,7 +1302,15 @@
     currentPos = initialPos.clone();
     currentDir = initialDir.clone();
     rebuildTrackMeshes();
-    setStatus('Track cleared. Start building from the blue start marker.');
+    beginEmptyCoasterMove();
+  }
+
+  // Same as at startup: an empty coaster can be moved and rotated before building.
+  function beginEmptyCoasterMove() {
+    if (movingCoaster) cancelMove();
+    beginMove(activeCoaster, null, true);
+    document.body.classList.add('moving-initial');
+    setStatus('Move the coaster, then click or press Place.');
   }
 
   function toggleTest() {
@@ -1536,7 +1573,7 @@
     if (ui.undo) ui.undo.disabled = trackSegments.length === 0;
     if (ui.redo) ui.redo.disabled = redoStack.length === 0;
 
-    if (isTesting || isClosedLoop || movingCoaster) {
+    if (isTesting || isClosedLoop) {
       previewGroup.visible = false;
       return;
     }
@@ -2415,8 +2452,9 @@
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
-    endpointMarker.visible = !isTesting && !isClosedLoop && !movingCoaster;
-    directionArrow.visible = !isTesting && !isClosedLoop && !movingCoaster;
+    endpointMarker.visible = !isTesting && !isClosedLoop;
+    directionArrow.visible = !isTesting && !isClosedLoop;
+    syncHelpersWithMove();
 
     clouds.update(dt);
     for (const ride of rides) {
