@@ -226,6 +226,8 @@
   let currentDir = initialDir.clone();
   let isClosedLoop = false;
   const coasters = [];
+  const coasterMenu = document.getElementById('coasterMenu');
+  let menuCoaster = null;
   let activeCoaster = null;
   let coasterCounter = 0;
   let placingCoaster = false;
@@ -309,6 +311,17 @@
   rebuildTrackMeshes();
   animate();
 
+  function closeCoasterMenu() {
+    coasterMenu.classList.remove('open');
+  }
+
+  function openCoasterMenu(coaster, x, y) {
+    menuCoaster = coaster;
+    coasterMenu.classList.add('open');
+    coasterMenu.style.left = Math.max(0, Math.min(x, window.innerWidth - coasterMenu.offsetWidth)) + 'px';
+    coasterMenu.style.top = Math.max(0, Math.min(y, window.innerHeight - coasterMenu.offsetHeight)) + 'px';
+  }
+
   function bindUI() {
     document.getElementById('addStraight').addEventListener('click', () => selectSectionType('straight'));
     document.getElementById('addLeft').addEventListener('click', () => selectSectionType('left'));
@@ -386,19 +399,15 @@
     title.addEventListener('blur', () => finishRename(true));
     trackColorInput.addEventListener('input', () => setTrackColor(trackColorInput.value));
 
-    const menu = document.getElementById('coasterMenu');
-    let menuCoaster = null;
-    const closeMenu = () => menu.classList.remove('open');
+    const menu = coasterMenu;
+    const closeMenu = closeCoasterMenu;
     canvas.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       closeMenu();
       if (movingCoaster || placingCoaster) return;
       if (isTesting && viewMode !== 'free') return;
-      menuCoaster = pickCoaster(event.clientX, event.clientY);
-      if (!menuCoaster) return;
-      menu.classList.add('open');
-      menu.style.left = Math.max(0, Math.min(event.clientX, window.innerWidth - menu.offsetWidth)) + 'px';
-      menu.style.top = Math.max(0, Math.min(event.clientY, window.innerHeight - menu.offsetHeight)) + 'px';
+      const picked = pickCoaster(event.clientX, event.clientY);
+      if (picked) openCoasterMenu(picked, event.clientX, event.clientY);
     });
     window.addEventListener('pointerdown', (event) => {
       if (!menu.contains(event.target)) closeMenu();
@@ -857,11 +866,14 @@
       return;
     }
 
+    closeCoasterMenu();
     const picked = pickCoaster(clientX, clientY);
     if (picked && picked !== activeCoaster) {
       activateCoaster(picked);
       setStatus(`Selected coaster ${coasters.indexOf(picked) + 1}. Sections: ${trackSegments.length}.`);
     }
+    // Touch has no right click, so tapping a coaster opens its menu instead.
+    if (picked && !fromMouse) openCoasterMenu(picked, clientX, clientY);
   }
 
   function pickCoaster(clientX, clientY) {
