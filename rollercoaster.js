@@ -386,8 +386,20 @@
       else trackColorInput.click();
     });
     const title = ui.coasterTitle;
+    // Keep the title above the on-screen keyboard while renaming.
+    const vv = window.visualViewport;
+    const placeTitle = () => {
+      if (!vv || !title.classList.contains('editing')) return;
+      const covered = document.documentElement.clientHeight - (vv.offsetTop + vv.height);
+      title.style.bottom = `${Math.max(0, covered) + 10}px`;
+    };
+    if (vv) {
+      vv.addEventListener('resize', placeTitle);
+      vv.addEventListener('scroll', placeTitle);
+    }
     const finishRename = (save) => {
       if (title.contentEditable !== 'true') return;
+      title.style.bottom = '';
       const name = title.textContent.trim().slice(0, 60);
       title.contentEditable = 'false';
       title.classList.remove('editing');
@@ -400,6 +412,7 @@
       title.contentEditable = 'true';
       title.classList.add('editing');
       title.focus();
+      placeTitle();
       const range = document.createRange();
       range.selectNodeContents(title);
       const selection = getSelection();
