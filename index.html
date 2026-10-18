@@ -164,7 +164,7 @@
     .stepper button { width: 34px; }
     .stepper span { min-width: 20px; text-align: center; font-weight: 800; font-size: 15px; color: #fff; }
 
-    #importDialog, #settingsDialog {
+    #importDialog, #settingsDialog, #deleteDialog {
       position: fixed;
       inset: 0;
       z-index: 50;
@@ -174,7 +174,7 @@
       background: rgba(0, 0, 0, 0.45);
     }
 
-    #importDialog.open, #settingsDialog.open { display: flex; }
+    #importDialog.open, #settingsDialog.open, #deleteDialog.open { display: flex; }
 
     .import-dialog-box {
       width: min(300px, calc(100vw - 32px));
@@ -771,6 +771,14 @@
       <button id="importExample" type="button" class="good">Example (Tempest)</button>
       <button id="importDevice" type="button" class="secondary">Import from device</button>
       <button id="importCancel" type="button" class="secondary">Cancel</button>
+    </div>
+  </div>
+
+  <div id="deleteDialog" role="dialog" aria-modal="true" aria-label="Delete roller coaster">
+    <div class="import-dialog-box">
+      <h2>Delete roller coaster?</h2>
+      <button id="deleteConfirm" type="button" class="warning">Delete</button>
+      <button id="deleteCancel" type="button" class="secondary">Cancel</button>
     </div>
   </div>
 

@@ -334,10 +334,19 @@
     document.getElementById('snapStart').addEventListener('click', snapToStart);
     ui.undo.addEventListener('click', undoSection);
     ui.redo.addEventListener('click', redoSection);
+    const deleteDialog = document.getElementById('deleteDialog');
+    document.getElementById('deleteConfirm').addEventListener('click', () => {
+      deleteDialog.classList.remove('open');
+      clearTrack();
+    });
+    document.getElementById('deleteCancel').addEventListener('click', () => {
+      deleteDialog.classList.remove('open');
+    });
+    deleteDialog.addEventListener('click', (e) => {
+      if (e.target === deleteDialog) deleteDialog.classList.remove('open');
+    });
     document.getElementById('clear').addEventListener('click', () => {
-      if (confirm('Are you sure you want to delete this roller coaster?')) {
-        clearTrack();
-      }
+      deleteDialog.classList.add('open');
     });
     document.getElementById('exportTrack').addEventListener('click', exportTrack);
     const importDialog = document.getElementById('importDialog');
@@ -434,7 +443,7 @@
       } else if (action === 'save') {
         exportTrack();
       } else if (action === 'delete') {
-        if (confirm('Are you sure you want to delete this roller coaster?')) clearTrack();
+        deleteDialog.classList.add('open');
       }
     });
     ui.testCoaster.addEventListener('click', toggleTest);
