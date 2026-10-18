@@ -379,6 +379,7 @@
 
   function openCoasterMenu(coaster, x, y) {
     menuCoaster = coaster;
+    document.getElementById('coasterMenuTitle').textContent = coaster.name;
     coasterMenu.classList.add('open');
     coasterMenu.style.left = Math.max(0, Math.min(x, window.innerWidth - coasterMenu.offsetWidth)) + 'px';
     coasterMenu.style.top = Math.max(0, Math.min(y, window.innerHeight - coasterMenu.offsetHeight)) + 'px';
@@ -464,7 +465,7 @@
       title.textContent = activeCoaster.name;
       title.blur();
     };
-    title.addEventListener('click', () => {
+    const startRename = () => {
       if (title.contentEditable === 'true') return;
       title.contentEditable = 'true';
       title.classList.add('editing');
@@ -475,6 +476,13 @@
       const selection = getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
+    };
+    title.addEventListener('click', () => {
+      if (title.contentEditable === 'true') return;
+      const rect = title.getBoundingClientRect();
+      openCoasterMenu(activeCoaster, rect.left, rect.top);
+      // The title sits at the bottom, so show the menu above it.
+      coasterMenu.style.top = Math.max(0, rect.top - coasterMenu.offsetHeight - 4) + 'px';
     });
     title.addEventListener('keydown', (e) => {
       if (e.code === 'Enter') { e.preventDefault(); finishRename(true); }
@@ -510,7 +518,7 @@
         if (typeof trackColorInput.showPicker === 'function') trackColorInput.showPicker();
         else trackColorInput.click();
       } else if (action === 'rename') {
-        title.click();
+        startRename();
       } else if (action === 'move') {
         if (isTesting) stopTest();
         beginMove(coaster, null, true);

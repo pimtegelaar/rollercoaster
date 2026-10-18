@@ -233,6 +233,16 @@
     }
 
     #coasterMenu.open { display: flex; }
+    #coasterMenu .menu-title {
+      max-width: 220px;
+      padding: 4px 8px 6px;
+      overflow: hidden;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
     #coasterMenu button {
       display: flex;
       align-items: center;
@@ -666,7 +676,7 @@
     </div>
   </div>
 
-  <div id="coasterTitle" title="Click to rename" spellcheck="false"></div>
+  <div id="coasterTitle" title="Click for options" spellcheck="false"></div>
 
   <div id="uiWrap">
   <div id="ui">
@@ -811,6 +821,7 @@
   </div>
 
   <div id="coasterMenu" role="menu" aria-label="Roller coaster">
+    <div id="coasterMenuTitle" class="menu-title"></div>
     <button type="button" role="menuitem" data-action="color" class="secondary"><span class="color-wheel" aria-hidden="true"></span>Change color</button>
     <button type="button" role="menuitem" data-action="rename" class="secondary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>Rename</button>
     <button type="button" role="menuitem" data-action="move" class="secondary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><path d="M3 12h18"/><path d="M9 6l3-3 3 3"/><path d="M9 18l3 3 3-3"/><path d="M6 9l-3 3 3 3"/><path d="M18 9l3 3-3 3"/></svg>Move</button>
